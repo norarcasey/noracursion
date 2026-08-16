@@ -1,19 +1,38 @@
-import type { CSSProperties, ReactNode } from 'react'
-import type { Operation, Structure } from '../types'
+import { useMemo, type CSSProperties, type ReactNode } from 'react'
+import { ArrayStructure } from '../core/arrayStructure'
+import { LinkedList } from '../core/linkedList'
+import type { Cell, VizModel } from '../core/model'
+import { BinarySearchTree } from '../core/tree'
+import { layoutModel } from '../layout'
+import {
+  DRAWABLE_STRUCTURES,
+  STRUCTURE_LABELS,
+  type LabelMode,
+  type Operation,
+  type Structure,
+} from '../types'
+import { Stage } from '../viz'
 
 /**
- * M0 props.
+ * The props implemented so far.
  *
- * The full surface lives in CLAUDE.md §2; this interface carries only the props
- * M0 actually honours. A prop that is declared but ignored is worse than a prop
- * that is missing — the type would promise behaviour the component does not
- * have — so the rest arrive with the milestones that implement them.
+ * The full surface lives in CLAUDE.md §2; this interface carries only what the
+ * component actually honours. A prop that is declared but ignored is worse than
+ * one that is missing — the type would promise behaviour that is not there — so
+ * the rest arrive with the milestones that implement them. The code panel,
+ * transport controls and execution props land in M4 and M5.
  */
 export interface NoracursionProps {
   /** Which data structure this example is about. */
   structure: Structure
   /** What the example does to it. */
   operation: Operation
+  /** Values to build the structure from. Defaults to a small sample set. */
+  initialData?: ReadonlyArray<number | string>
+  /** What each node shows inside its circle. Default `'value'`. */
+  labelMode?: LabelMode
+  /** Milliseconds a node takes to move to a new position. Default `600`. */
+  speedMs?: number
   /** Heading above the visualization. Omit (or pass `null`) to hide it. */
   title?: ReactNode
   /** Consumer-supplied prose shown under the heading. */
@@ -24,30 +43,119 @@ export interface NoracursionProps {
   style?: CSSProperties
 }
 
-/** Radius of a node circle, in user units. CLAUDE.md §3.5. */
-const NODE_RADIUS = 18
+/**
+ * Used when the consumer supplies no data, so the component draws something
+ * meaningful out of the box. Chosen to make a legibly unbalanced binary search
+ * tree while still reading sensibly as an array or a list.
+ */
+const DEFAULT_DATA: readonly Cell[] = [8, 3, 10, 1, 6, 14]
+
+function buildModel(structure: Structure, data: readonly Cell[]): VizModel | null {
+  switch (structure) {
+    case 'array':
+      return new ArrayStructure(data).toVizModel()
+    case 'linked-list':
+      return new LinkedList(data).toVizModel()
+    case 'binary-search-tree':
+      return new BinarySearchTree(data).toVizModel()
+    default:
+      return null
+  }
+}
 
 /**
- * The three hardcoded nodes M0 draws. This is not a data structure — it is a
- * fixed picture whose only job is to prove the build, test, and render pipeline
- * end to end. `core/` supplies the real `VizModel` from M2, and `layout/`
- * computes real positions from M3; until then these coordinates are literals.
+ * Noracursion — a data structure animated from real, editable, steppable code.
  *
- * Ids are already stable and already the React keys, because every later
- * animation depends on that and it is cheaper to start correct.
+ * Today it draws the structure: the model is built from `initialData`, laid out
+ * by a pure layout function, and rendered as SVG whose nodes move by CSS
+ * transition keyed on stable ids. The interpreter that makes it *step* is
+ * already built and tested; wiring the two together is M4.
  */
-const PLACEHOLDER_NODES = [
-  { id: 'n1', label: '8', x: 56, y: 72 },
-  { id: 'n2', label: '3', x: 150, y: 72 },
-  { id: 'n3', label: '10', x: 244, y: 72 },
-]
+export function Noracursion({
+  structure,
+  operation,
+  initialData,
+  labelMode = 'value',
+  speedMs = 600,
+  title,
+  blurb,
+  className,
+  style,
+}: NoracursionProps) {
+  const caption = `${structure} · ${operation}`
+  const data = initialData ?? DEFAULT_DATA
 
-const PLACEHOLDER_EDGES = [
-  { id: 'e1', from: 'n1', to: 'n2' },
-  { id: 'e2', from: 'n2', to: 'n3' },
-]
+  const model = useMemo(() => buildModel(structure, data), [structure, data])
+  const layout = useMemo(() => (model === null ? null : layoutModel(model)), [model])
 
-const VIEW_BOX = '0 0 300 144'
+  return (
+    <div
+      className={className === undefined ? 'nrc' : `nrc ${className}`}
+      style={style === undefined ? rootStyle : { ...rootStyle, ...style }}
+      data-nrc-structure={structure}
+      data-nrc-operation={operation}
+    >
+      {title !== undefined && title !== null && (
+        <h2 className="nrc__title" style={titleStyle}>
+          {title}
+        </h2>
+      )}
+
+      {blurb !== undefined && blurb !== null && (
+        <div className="nrc__blurb" style={blurbStyle}>
+          {blurb}
+        </div>
+      )}
+
+      {model === null || layout === null ? (
+        <NotYetDrawable structure={structure} />
+      ) : (
+        <Stage
+          layout={layout}
+          labelMode={labelMode}
+          speedMs={speedMs}
+          showIndexLabels={model.layoutHint === 'row'}
+          ariaLabel={describe(structure, model)}
+        />
+      )}
+
+      <p className="nrc__caption" style={captionStyle}>
+        {caption}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Says plainly what is missing, in the same voice as the interpreter's errors.
+ * A blank stage would leave the reader guessing whether they had passed bad
+ * data or hit a gap in the library.
+ */
+function NotYetDrawable({ structure }: { structure: Structure }) {
+  return (
+    <div className="nrc__notice" role="status" style={noticeStyle}>
+      <strong>Noracursion can’t draw a {STRUCTURE_LABELS[structure]} yet.</strong>{' '}
+      {`The structures it draws today are: ${listDrawable()}.`}
+    </div>
+  )
+}
+
+/**
+ * Derived from the list itself, so the copy cannot drift from what works.
+ * Rendered as a plain comma list after a colon, which avoids having to
+ * pluralize or article every structure name ("an array", "a red-black tree").
+ */
+function listDrawable(): string {
+  return DRAWABLE_STRUCTURES.map((structure) => STRUCTURE_LABELS[structure]).join(', ')
+}
+
+/** A description of the picture for readers who cannot see it. */
+function describe(structure: Structure, model: VizModel): string {
+  const name = STRUCTURE_LABELS[structure]
+  if (model.nodes.length === 0) return `An empty ${name}.`
+  const labels = model.nodes.map((node) => node.label).join(', ')
+  return `${name} with ${model.nodes.length} nodes: ${labels}.`
+}
 
 // Structurally load-bearing styles are inline so an unstyled import still
 // renders correctly (CLAUDE.md §5). Everything cosmetic reads a `--nrc-*`
@@ -79,14 +187,6 @@ const blurbStyle: CSSProperties = {
   color: 'var(--nrc-muted, #9fb0e8)',
 }
 
-const stageStyle: CSSProperties = {
-  display: 'block',
-  width: '100%',
-  height: 'auto',
-  borderRadius: '8px',
-  background: 'var(--nrc-stage, #0b1020)',
-}
-
 const captionStyle: CSSProperties = {
   margin: 0,
   fontSize: '0.85rem',
@@ -95,110 +195,12 @@ const captionStyle: CSSProperties = {
   color: 'var(--nrc-muted, #9fb0e8)',
 }
 
-const labelStyle: CSSProperties = {
-  fontFamily: 'var(--nrc-mono, ui-monospace, Menlo, Monaco, Consolas, monospace)',
-  fontSize: '14px',
-  fontWeight: 600,
-  fill: 'var(--nrc-node-label, #e7ecff)',
-  // The label belongs to the circle, not to the reader's cursor.
-  userSelect: 'none',
-}
-
-/**
- * Noracursion — a data structure animated from real, editable, steppable code.
- *
- * M0 renders the shell: an optional title, an optional blurb, a static SVG, and
- * a caption naming the example. There is no interpreter, no code panel, and no
- * transport yet; the point of this milestone is that `npm run build:lib`
- * produces a working, typed, tree-shakeable package.
- */
-export function Noracursion({
-  structure,
-  operation,
-  title,
-  blurb,
-  className,
-  style,
-}: NoracursionProps) {
-  const caption = `${structure} · ${operation}`
-  const nodeById = new Map(PLACEHOLDER_NODES.map((node) => [node.id, node]))
-
-  return (
-    <div
-      className={className === undefined ? 'nrc' : `nrc ${className}`}
-      style={style === undefined ? rootStyle : { ...rootStyle, ...style }}
-      data-nrc-structure={structure}
-      data-nrc-operation={operation}
-    >
-      {title !== undefined && title !== null && (
-        <h2 className="nrc__title" style={titleStyle}>
-          {title}
-        </h2>
-      )}
-
-      {blurb !== undefined && blurb !== null && (
-        <div className="nrc__blurb" style={blurbStyle}>
-          {blurb}
-        </div>
-      )}
-
-      <svg
-        className="nrc__stage"
-        style={stageStyle}
-        viewBox={VIEW_BOX}
-        role="img"
-        aria-label={`Placeholder visualization for ${caption}`}
-      >
-        <g className="nrc__edges">
-          {PLACEHOLDER_EDGES.map((edge) => {
-            const from = nodeById.get(edge.from)
-            const to = nodeById.get(edge.to)
-            if (from === undefined || to === undefined) return null
-            return (
-              <line
-                key={edge.id}
-                className="nrc__edge"
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke="var(--nrc-edge-stroke, #38e1ff)"
-                strokeWidth={2}
-              />
-            )
-          })}
-        </g>
-
-        <g className="nrc__nodes">
-          {PLACEHOLDER_NODES.map((node) => (
-            <g key={node.id} className="nrc__node" data-nrc-node-id={node.id}>
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={NODE_RADIUS}
-                fill="var(--nrc-node-fill, #1b2550)"
-                stroke="var(--nrc-node-stroke, #38e1ff)"
-                strokeWidth={2}
-              />
-              <text
-                x={node.x}
-                y={node.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                style={labelStyle}
-              >
-                {node.label}
-              </text>
-            </g>
-          ))}
-        </g>
-      </svg>
-
-      <p className="nrc__caption" style={captionStyle}>
-        {caption}
-      </p>
-    </div>
-  )
+const noticeStyle: CSSProperties = {
+  padding: '1rem',
+  borderRadius: '8px',
+  lineHeight: 1.5,
+  background: 'var(--nrc-stage, #0b1020)',
+  border: '1px solid var(--nrc-edge-stroke, #4a5a94)',
 }
 
 export default Noracursion

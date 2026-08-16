@@ -39,3 +39,39 @@ export type SortAlgorithm = 'bubble' | 'insertion' | 'selection' | 'merge' | 'qu
  * display-only and say so on the panel (CLAUDE.md §4).
  */
 export type Language = 'typescript' | 'javascript' | 'python' | 'java' | 'go'
+
+/** What each node shows inside its circle. */
+export type LabelMode = 'value' | 'index' | 'none'
+
+/**
+ * The structures that have a model behind them today. Anything in `Structure`
+ * but not here is drawn as a "can't do this yet" notice rather than a blank
+ * stage — see the note in CLAUDE.md §6.5 about unimplemented combinations.
+ */
+export const DRAWABLE_STRUCTURES = ['array', 'linked-list', 'binary-search-tree'] as const
+
+export type DrawableStructure = (typeof DRAWABLE_STRUCTURES)[number]
+
+/**
+ * How each structure is written in prose.
+ *
+ * The prop values are slugs, and a slug read aloud by a screen reader — or
+ * dropped into a sentence — comes out as "red dash black dash tree". The
+ * mapping is hand-written rather than derived because the right typography is
+ * not mechanical: `red-black tree` keeps its hyphen, `AVL` is capitalised, and
+ * `linked-list` loses its hyphen entirely.
+ */
+export const STRUCTURE_LABELS: Readonly<Record<Structure, string>> = {
+  array: 'array',
+  'linked-list': 'linked list',
+  'doubly-linked-list': 'doubly linked list',
+  stack: 'stack',
+  queue: 'queue',
+  'binary-search-tree': 'binary search tree',
+  'red-black-tree': 'red-black tree',
+  'avl-tree': 'AVL tree',
+  'min-heap': 'min-heap',
+  'max-heap': 'max-heap',
+  trie: 'trie',
+  graph: 'graph',
+}

@@ -29,7 +29,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than copying its value down, and array swaps carry ids with the
   elements, so both read as motion rather than as relabelling. Rotation
   primitives are included so id stability can be tested now rather than
-  discovered under a red-black tree in M7. (100 tests.)
+  discovered under a red-black tree in M7.
+- **M3 — layout and the renderer.** Pure layout functions (`row`, `chain`, and a
+  Reingold–Tilford `tidyTree` in Buchheim's linear-time form) and an SVG
+  renderer whose nodes *and edges* move by CSS transition keyed on stable ids.
+  A node with one child gets a phantom sibling so it visibly leans to its own
+  side. `prefers-reduced-motion` snaps to the final positions. `<Noracursion />`
+  now draws the structure named by `structure` and `initialData`; a structure
+  without a model yet says so instead of rendering a blank stage. (137 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

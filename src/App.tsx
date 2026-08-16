@@ -12,12 +12,31 @@ export default function App() {
         </p>
       </header>
 
-      <Noracursion
-        structure="binary-search-tree"
-        operation="insert"
-        title="Inserting into a BST"
-        blurb="Milestone 0 — the shell only. The interpreter, code panel, and transport controls arrive in M1 through M5; these three circles are hardcoded and prove the build, test, and render pipeline."
-      />
+      <div className="demo__examples">
+        <Noracursion
+          structure="binary-search-tree"
+          operation="insert"
+          title="Binary search tree"
+          initialData={[8, 3, 10, 1, 6, 14, 4, 7, 13]}
+          blurb="Laid out with Reingold–Tilford, so subtrees never overlap and an only child still leans to its own side."
+        />
+
+        <Noracursion
+          structure="linked-list"
+          operation="traverse"
+          title="Linked list"
+          initialData={[4, 8, 15, 16]}
+          blurb="A chain of nodes, each pointing at the next."
+        />
+
+        <Noracursion
+          structure="array"
+          operation="sort"
+          title="Array"
+          initialData={[5, 3, 8, 1, 9, 2]}
+          blurb="Indices beneath, values inside. Ids follow the elements, so a swap will read as two cells trading places."
+        />
+      </div>
 
       <p className="demo__credit">
         An embeddable React component. Drop <code>&lt;Noracursion /&gt;</code> anywhere.
