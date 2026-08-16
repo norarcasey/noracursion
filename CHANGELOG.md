@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **M1 — the interpreter.** TypeScript in, `Step`s out, with no `eval`,
+  `new Function`, or `Worker` anywhere: the source is type-stripped with
+  sucrase, parsed with acorn, and walked by generator functions that yield
+  before every statement, at every loop test, and at every function entry and
+  exit. Line-accurate stepping, a variables snapshot, and call depth come out of
+  that walk directly.
+- Whitelist validation of the supported subset, run **before** execution, so an
+  uncalled `async function` is reported when the code is loaded rather than
+  never. Rejections name the construct and the line.
+- Teaching diagnostics for runaway code: `loop-budget` carries the loop's line
+  and source text plus each test variable's first-vs-latest value, and infers
+  the fix from the shape of the value (`current = current.next;`);
+  `recursion-depth` names the function and writes a base case using its own
+  parameter; `step-budget` stops a program that is merely slow.
+- Golden trace, budget, subset-semantics and type-stripping test suites
+  (72 tests).
+
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and
   a caption naming the example's structure and operation. No interpreter, no
