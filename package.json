@@ -1,0 +1,93 @@
+{
+  "name": "@norarcasey/noracursion",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Teach data structures by animating them from real, editable, steppable code.",
+  "license": "MIT",
+  "author": "Nora Casey",
+  "homepage": "https://github.com/norarcasey/noracursion#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/norarcasey/noracursion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/norarcasey/noracursion/issues"
+  },
+  "keywords": [
+    "data-structures",
+    "algorithms",
+    "visualization",
+    "interpreter",
+    "teaching",
+    "recursion",
+    "react",
+    "component",
+    "typescript"
+  ],
+  "main": "./dist/noracursion.cjs",
+  "module": "./dist/noracursion.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/noracursion.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/noracursion.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:lib": "tsc -p tsconfig.lib.json && vite build --mode lib && node scripts/emit-cts.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "gate": "prettier --write . > /dev/null 2>&1 && eslint . && tsc --noEmit && vitest run",
+    "verify": "npm run format && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run build:lib",
+    "ci:watch": "bash scripts/ci-watch.sh",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build:lib"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20.19.41",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^15.15.0",
+    "jsdom": "^25.0.0",
+    "prettier": "^3.8.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.60.1",
+    "vite": "^5.4.2",
+    "vite-plugin-dts": "^4.0.3",
+    "vitest": "^2.0.5"
+  }
+}

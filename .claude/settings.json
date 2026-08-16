@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run gate)",
+      "Bash(npm run gate:*)",
+      "Bash(npm run verify)",
+      "Bash(npm run verify:*)",
+      "Bash(npm run format)",
+      "Bash(npm run format:check)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run test)",
+      "Bash(npm run test:*)",
+      "Bash(npm run build)",
+      "Bash(npm run build:lib)",
+      "Bash(npm run ci:watch)",
+      "Bash(npm run ci:watch:*)"
+    ]
+  }
+}
