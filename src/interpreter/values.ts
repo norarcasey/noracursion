@@ -131,6 +131,14 @@ export interface Step {
   readonly phase: StepPhase
   readonly scope: Record<string, Snapshot>
   readonly callDepth: number
+  /**
+   * The functions currently on the stack, outermost first.
+   *
+   * `callDepth` alone gives a number; this gives the view. §3.2 calls the
+   * call-stack panel "how you make recursion legible", and a panel that can
+   * only say "depth 4" is not that.
+   */
+  readonly callStack: readonly string[]
   /** Events emitted since the previous step. */
   readonly events: readonly VizEvent[]
 }

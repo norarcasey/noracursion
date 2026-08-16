@@ -171,7 +171,7 @@ describe('<Noracursion /> running code', () => {
       <Noracursion structure="array" operation="sort" initialData={[3, 1, 2]} code={SORT} />,
     )
     expect(drawnValues(container)).toEqual(['3', '1', '2'])
-    expect(screen.getByText(/step 0 of \d+/)).toBeInTheDocument()
+    expect(screen.getByText(/Step 0 of \d+/)).toBeInTheDocument()
   })
 
   it('animates to the sorted array when it plays', () => {

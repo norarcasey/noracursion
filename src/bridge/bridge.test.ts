@@ -218,6 +218,31 @@ describe('errors', () => {
     expect(result.summary.completed).toBe(false)
   })
 
+  it('leaves the injected handle out of the loop diagnostic', () => {
+    // `while (i < list.length)` reads `list` too, but `list` is the runtime,
+    // not the reader's variable — listing it would bury the one that matters
+    // under a dump of its own methods.
+    const result = buildRun({
+      structure: 'linked-list',
+      data: [1, 2, 3],
+      code: src(`
+let i = 0
+while (i < list.length) {
+  visit(i)
+}
+`),
+      maxLoopIterations: 30,
+    })
+    expect(result.error?.detail.kind).toBe('loop-budget')
+    if (result.error?.detail.kind !== 'loop-budget') return
+    expect(result.error.detail.testVariables.map((v) => v.name)).toEqual(['i'])
+    expect(result.error.detail.testVariables[0]).toMatchObject({
+      first: '0',
+      latest: '0',
+      changed: false,
+    })
+  })
+
   it('names a value that is not in the tree', () => {
     const result = run('binary-search-tree', [5], `visit(42)`)
     expect(result.error?.message).toContain('not in the tree')

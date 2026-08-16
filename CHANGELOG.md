@@ -46,7 +46,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `autoPlay`, `speedMs`, the budgets, and the `onStep` / `onEvent` /
   `onComplete` / `onRuntimeError` escape hatches; `useRun` is exported for
   headless use. `acorn` and `sucrase` are now external to the library build
-  rather than bundled into it. (162 tests.)
+  rather than bundled into it.
+- **M5 — the whole panel.** An editable, line-numbered, syntax-highlighted code
+  panel with a current-line bar driven by the interpreter; transport controls
+  (play, pause, step, reset, speed) that are operable from the keyboard and axe
+  clean; variables, call-stack and output panels read straight off the current
+  step; and teaching panels that render a runaway loop as a lesson — the line,
+  the code on it, a first-versus-latest table of the variables its condition
+  reads, and a concrete next edit. Adds `language`, `editable`, `showCode`,
+  `showControls`, `showLegend`, `showPanels` and `colorMode`. Editing the code
+  re-runs it; a `code` prop that changes underneath your edits offers a choice
+  instead of discarding them. (192 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

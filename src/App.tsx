@@ -27,6 +27,12 @@ const LIST_WALK = `for (let i = 0; i < list.length; i++) {
 }
 `
 
+const BROKEN_LOOP = `let i = 0
+while (i < list.length) {
+  visit(i)
+}
+`
+
 export default function App() {
   return (
     <main className="demo">
@@ -69,7 +75,17 @@ export default function App() {
           code={LIST_WALK}
           autoPlay
           speedMs={220}
+          showLegend
           blurb="Code that only reads still animates — the visit trail comes from the loop itself."
+        />
+
+        <Noracursion
+          structure="linked-list"
+          operation="traverse"
+          title="A loop that never ends"
+          initialData={[4, 8, 15]}
+          code={BROKEN_LOOP}
+          blurb="Edit line 3 to add `i = i + 1` and press play — the teaching panel is what you get instead of a hung tab."
         />
       </div>
 

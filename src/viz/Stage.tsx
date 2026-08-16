@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { NodeColor } from '../core/model'
 import type { Layout, LayoutEdge, LayoutNode } from '../layout'
-import type { LabelMode } from '../types'
+import type { ColorMode, LabelMode } from '../types'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 
 export interface StageProps {
@@ -9,6 +9,7 @@ export interface StageProps {
   /** Describes the picture for a screen reader; the SVG is one `img`. */
   readonly ariaLabel: string
   readonly labelMode?: LabelMode
+  readonly colorMode?: ColorMode
   /** Draw an index caption beneath each node — arrays and heaps-as-arrays. */
   readonly showIndexLabels?: boolean
   /** Transition duration for movement, in milliseconds. */
@@ -18,6 +19,23 @@ export interface StageProps {
 
 /** Kinds that point somewhere, and so get an arrowhead. */
 const DIRECTED = new Set(['next', 'prev', 'parent'])
+
+/**
+ * Execution state, each with a stroke treatment as well as a fill.
+ *
+ * The stroke is what a reader who cannot separate the fills goes by, so it is
+ * not decoration: `visiting` is thick and solid, `compared` finely dashed,
+ * `swapped` coarsely dashed. The stroke wins over a structural colour's dash
+ * when a node has both, because state is the thing that is changing.
+ */
+const STATE_PAINT: Readonly<Record<string, { fill: string; strokeWidth: number; dash?: string }>> =
+  {
+    visiting: { fill: 'var(--nrc-state-visiting, #ffd166)', strokeWidth: 4 },
+    compared: { fill: 'var(--nrc-state-compared, #38e1ff)', strokeWidth: 3, dash: '2 3' },
+    swapped: { fill: 'var(--nrc-state-swapped, #b388ff)', strokeWidth: 3, dash: '6 3' },
+    found: { fill: 'var(--nrc-state-found, #7bd88f)', strokeWidth: 4 },
+    removed: { fill: 'var(--nrc-state-removed, #55607f)', strokeWidth: 2, dash: '1 4' },
+  }
 
 /**
  * Colours that carry meaning, each paired with a non-chromatic encoding.
@@ -50,6 +68,7 @@ export function Stage({
   layout,
   ariaLabel,
   labelMode = 'value',
+  colorMode = 'structure',
   showIndexLabels = false,
   speedMs = 600,
   className,
@@ -78,6 +97,7 @@ export function Stage({
             key={node.id}
             node={node}
             labelMode={labelMode}
+            colorMode={colorMode}
             showIndexLabel={showIndexLabels}
             transition={transition}
           />
@@ -128,16 +148,20 @@ function Edge({ edge, transition }: { edge: LayoutEdge; transition: string }) {
 function Node({
   node,
   labelMode,
+  colorMode,
   showIndexLabel,
   transition,
 }: {
   node: LayoutNode
   labelMode: LabelMode
+  colorMode: ColorMode
   showIndexLabel: boolean
   transition: string
 }) {
   const semantic = node.color === undefined ? undefined : SEMANTIC_COLORS[node.color]
+  const state = node.state === undefined ? undefined : STATE_PAINT[node.state]
   const index = readIndex(node)
+  const mark = typeof node.meta?.mark === 'string' ? node.meta.mark : null
 
   return (
     <g
@@ -149,10 +173,10 @@ function Node({
     >
       <circle
         r={node.radius}
-        fill={semantic === undefined ? fillFor(node.color) : semantic.fill}
+        fill={fillFor(colorMode, node.color, semantic, state)}
         stroke="var(--nrc-node-stroke, #38e1ff)"
-        strokeWidth={2}
-        strokeDasharray={semantic?.dash}
+        strokeWidth={state?.strokeWidth ?? 2}
+        strokeDasharray={state?.dash ?? semantic?.dash}
       />
       {labelText(node, labelMode, index) !== null && (
         <text textAnchor="middle" dominantBaseline="central" style={labelStyle}>
@@ -171,6 +195,17 @@ function Node({
           style={glyphStyle}
         >
           {semantic.glyph}
+        </text>
+      )}
+      {mark !== null && (
+        <text
+          className="nrc__mark"
+          y={-node.radius - 7}
+          textAnchor="middle"
+          dominantBaseline="central"
+          style={markStyle}
+        >
+          {mark}
         </text>
       )}
       {showIndexLabel && labelMode !== 'index' && index !== null && (
@@ -199,8 +234,29 @@ function readIndex(node: LayoutNode): number | null {
   return typeof value === 'number' ? value : null
 }
 
-function fillFor(color: NodeColor | undefined): string {
-  return color === undefined ? 'var(--nrc-node-fill, #1b2550)' : color
+const NEUTRAL_FILL = 'var(--nrc-node-fill, #1b2550)'
+
+/**
+ * `colorMode` decides which of the two colour systems wins (§2).
+ *
+ * `structure` prefers the structure's own meaning — a red-black node stays red —
+ * and falls back to execution state where the structure has nothing to say,
+ * which is most of the time for arrays and lists. `state` ignores the
+ * structural colour outright, and `none` keeps every fill neutral. The stroke
+ * treatment for state is applied in all three, so a colourblind reader — and a
+ * reader who chose `none` — can still see what the code is doing.
+ */
+function fillFor(
+  colorMode: ColorMode,
+  color: NodeColor | undefined,
+  semantic: { fill: string } | undefined,
+  state: { fill: string } | undefined,
+): string {
+  if (colorMode === 'none') return NEUTRAL_FILL
+  if (colorMode === 'state') return state?.fill ?? NEUTRAL_FILL
+  if (semantic !== undefined) return semantic.fill
+  if (color !== undefined) return color
+  return state?.fill ?? NEUTRAL_FILL
 }
 
 const stageStyle: CSSProperties = {
@@ -224,6 +280,15 @@ const glyphStyle: CSSProperties = {
   fontSize: '10px',
   fontWeight: 700,
   fill: 'var(--nrc-node-label, #e7ecff)',
+  userSelect: 'none',
+}
+
+const markStyle: CSSProperties = {
+  fontFamily: 'var(--nrc-font, system-ui, sans-serif)',
+  fontSize: '10px',
+  fontWeight: 700,
+  letterSpacing: '0.04em',
+  fill: 'var(--nrc-state-visiting, #ffd166)',
   userSelect: 'none',
 }
 

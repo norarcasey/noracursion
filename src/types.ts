@@ -44,6 +44,17 @@ export type Language = 'typescript' | 'javascript' | 'python' | 'java' | 'go'
 export type LabelMode = 'value' | 'index' | 'none'
 
 /**
+ * Where a node's colour comes from (CLAUDE.md §2).
+ *
+ * `structure` is the structure's own semantics — literal red and black for a
+ * red-black tree, because there the colour *is* the mnemonic. `state` colours
+ * by what the code is doing instead. `none` keeps every node neutral. In all
+ * three, execution state is also drawn with a stroke treatment, so the picture
+ * never depends on colour alone.
+ */
+export type ColorMode = 'structure' | 'state' | 'none'
+
+/**
  * The structures that have a model behind them today. Anything in `Structure`
  * but not here is drawn as a "can't do this yet" notice rather than a blank
  * stage — see the note in CLAUDE.md §6.5 about unimplemented combinations.

@@ -72,6 +72,7 @@ class Interpreter {
 
   private steps = 0
   private callDepth = 0
+  private readonly stack: string[] = []
   private pendingEvents: VizEvent[] = []
   private readonly logs: string[] = []
 
@@ -144,6 +145,7 @@ class Interpreter {
       phase,
       scope: env.snapshot(),
       callDepth: this.callDepth,
+      callStack: [...this.stack],
       events,
     }
   }
@@ -736,6 +738,7 @@ class Interpreter {
     })
 
     this.callDepth += 1
+    this.stack.push(fn.name === '' ? '(anonymous)' : fn.name)
     try {
       yield* this.emit(fn.node, 'function-entry', scope)
       const body = fn.node.body
@@ -758,6 +761,7 @@ class Interpreter {
       return value
     } finally {
       this.callDepth -= 1
+      this.stack.pop()
     }
   }
 
@@ -1025,6 +1029,8 @@ class Interpreter {
 interface Sample {
   readonly name: string
   readonly snapshot: Snapshot
+  /** False for a builtin or an injected handle, which is not the reader's. */
+  readonly local: boolean
 }
 
 /**
@@ -1049,8 +1055,12 @@ class LoopWatch {
   /** Sample the test variables; called right after each test evaluation. */
   record(env: Env): void {
     const sample = this.names.map((name) => {
-      const binding = env.lookup(name)
-      return { name, snapshot: capture(binding === undefined ? undefined : binding.value) }
+      const binding = env.lookupLocal(name)
+      return {
+        name,
+        snapshot: capture(binding === undefined ? undefined : binding.value),
+        local: binding !== undefined,
+      }
     })
     if (this.first === null) this.first = sample
     this.latest = sample
@@ -1070,11 +1080,17 @@ class LoopWatch {
     const loopSource = parsed.sourceLine(loopLine).trim()
 
     const firstSamples = this.first ?? this.latest
-    const testVariables: TestVariable[] = this.names.map((name, index) => {
-      const before = formatSnapshot(firstSamples[index]?.snapshot ?? { kind: 'elided' })
-      const after = formatSnapshot(this.latest[index]?.snapshot ?? { kind: 'elided' })
-      return { name, first: before, latest: after, changed: before !== after }
-    })
+    const testVariables: TestVariable[] = this.names
+      .map((name, index) => ({ name, index }))
+      // `while (i < list.length)` reads `list`, but `list` is the injected
+      // handle, and rendering it would fill the panel with its own method list
+      // instead of the one variable that matters.
+      .filter(({ index }) => this.latest[index]?.local ?? false)
+      .map(({ name, index }) => {
+        const before = formatSnapshot(firstSamples[index]?.snapshot ?? { kind: 'elided' })
+        const after = formatSnapshot(this.latest[index]?.snapshot ?? { kind: 'elided' })
+        return { name, first: before, latest: after, changed: before !== after }
+      })
 
     return new NoracursionError(
       `This loop ran ${this.limit} times and never stopped.`,
@@ -1085,15 +1101,20 @@ class LoopWatch {
         iterations: this.iterations - 1,
         testVariables,
       },
-      buildLoopHint(this.loopNode, loopLine, loopSource, testVariables, this.latest),
+      buildLoopHint(this.loopNode, testVariables, this.latest),
     )
   }
 }
 
+/**
+ * The advice half of a loop diagnostic.
+ *
+ * The line number and the loop's source text live on the error's `detail`, so
+ * the teaching panel lays those out itself; repeating them here would print the
+ * same line twice.
+ */
 function buildLoopHint(
   loopNode: AnyNode,
-  loopLine: number,
-  loopSource: string,
   testVariables: readonly TestVariable[],
   samples: readonly Sample[],
 ): string {
@@ -1105,7 +1126,7 @@ function buildLoopHint(
   if (body !== null) {
     for (const variable of unchanged) {
       if (continueSkipsUpdate(body, variable.name)) {
-        return `Line ${loopLine}: \`${loopSource}\`. \`${variable.name}\` is updated after a \`continue\`, so on the iterations that hit the \`continue\` it never changes. Move the update above the \`continue\`, or into the loop header.`
+        return `\`${variable.name}\` is updated after a \`continue\`, so on the iterations that hit the \`continue\` it never changes. Move the update above the \`continue\`, or into the loop header.`
       }
     }
   }
@@ -1124,20 +1145,20 @@ function buildLoopHint(
         suggestion === null
           ? `Something inside the loop has to change \`${variable.name}\`.`
           : `Try adding \`${suggestion}\` before the closing brace.`
-      return `Line ${loopLine}: \`${loopSource}\`. \`${variable.name}\` started as ${variable.first} and is still ${variable.first}. A ${keyword} loop only ends when its condition becomes false, and nothing in the body changes \`${variable.name}\`. ${fix}`
+      return `\`${variable.name}\` started as ${variable.first} and is still ${variable.first}. A ${keyword} loop only ends when its condition becomes false, and nothing in the body changes \`${variable.name}\`. ${fix}`
     }
-    return `Line ${loopLine}: \`${loopSource}\`. \`${variable.name}\` is assigned inside the loop but still ends up as ${variable.latest} every time, so the condition never becomes false. Check that the assignment actually moves it towards ending the loop.`
+    return `\`${variable.name}\` is assigned inside the loop but still ends up as ${variable.latest} every time, so the condition never becomes false. Check that the assignment actually moves it towards ending the loop.`
   }
 
   const backwards = findBackwardsCounter(loopNode, testVariables)
   if (backwards !== null) {
-    return `Line ${loopLine}: \`${loopSource}\`. \`${backwards.name}\` is moving from ${backwards.first} to ${backwards.latest} — away from the value that would end the loop, not towards it. Check the direction of the update.`
+    return `\`${backwards.name}\` is moving from ${backwards.first} to ${backwards.latest} — away from the value that would end the loop, not towards it. Check the direction of the update.`
   }
 
   const summary = testVariables
     .map((variable) => `\`${variable.name}\` went from ${variable.first} to ${variable.latest}`)
     .join(', ')
-  return `Line ${loopLine}: \`${loopSource}\`. ${summary === '' ? 'The condition never became false.' : `${summary}, and the condition never became false.`} A ${keyword} loop ends only when its condition is false — check what would have to change for that to happen.`
+  return `${summary === '' ? 'The condition never became false.' : `${summary}, and the condition never became false.`} A ${keyword} loop ends only when its condition is false — check what would have to change for that to happen.`
 }
 
 function loopBody(loopNode: AnyNode): AnyNode | null {

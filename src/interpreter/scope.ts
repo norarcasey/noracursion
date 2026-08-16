@@ -63,6 +63,22 @@ export class Env {
     return undefined
   }
 
+  /**
+   * Like `lookup`, but stops before the global scope.
+   *
+   * The globals are builtins and the injected runtime handles — `Math`, `list`,
+   * `visit`. They are not the reader's variables, so anything reporting on "the
+   * variables this code uses" has to be able to leave them out.
+   */
+  lookupLocal(name: string): Binding | undefined {
+    for (const scope of chain(this)) {
+      if (scope.isGlobal) return undefined
+      const binding = scope.bindings.get(name)
+      if (binding !== undefined) return binding
+    }
+    return undefined
+  }
+
   has(name: string): boolean {
     return this.lookup(name) !== undefined
   }
