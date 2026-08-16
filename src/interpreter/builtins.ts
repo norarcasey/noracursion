@@ -264,21 +264,20 @@ export function createGlobals(onLog: (text: string) => void): Map<string, Value>
     ['E', Math.E],
   ])
 
-  const consoleObject = makeObject([
-    [
-      'log',
-      native('log', (args, ctx) => {
-        const text = args.map(stringify).join(' ')
-        onLog(text)
-        ctx.emit({ type: 'log', text })
-        return undefined
-      }),
-    ],
-  ])
+  const log = native('log', (args, ctx) => {
+    const text = args.map(stringify).join(' ')
+    onLog(text)
+    ctx.emit({ type: 'log', text })
+    return undefined
+  })
 
   return new Map<string, Value>([
     ['Math', math],
-    ['console', consoleObject],
+    ['console', makeObject([['log', log]])],
+    // §3.4 lists a bare `log(...)` in the injected runtime. It is the same
+    // function as `console.log`, so both feed the one output pane rather than
+    // two subtly different ones.
+    ['log', log],
   ])
 }
 

@@ -2,7 +2,20 @@
 export { Noracursion } from './components/Noracursion'
 export type { NoracursionProps } from './components/Noracursion'
 
-export type { Language, Operation, SortAlgorithm, Structure, TraversalOrder } from './types'
+export type {
+  DrawableStructure,
+  LabelMode,
+  Language,
+  Operation,
+  SortAlgorithm,
+  Structure,
+  TraversalOrder,
+} from './types'
+
+// The headless engine, for consumers who want the run without the picture.
+export { useRun, type RunController, type UseRunOptions } from './ui/useRun'
+export { buildRun, type BuildRunOptions, type Frame, type Run } from './bridge'
+export type { VizEdge, VizModel, VizNode } from './core/model'
 
 // The interpreter itself stays internal — CLAUDE.md §8 rules out shipping a
 // general-purpose JS engine — but the types its callbacks hand back are part of

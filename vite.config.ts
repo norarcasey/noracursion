@@ -41,9 +41,14 @@ export default defineConfig(({ mode }) => {
             formats: ['es', 'cjs'],
           },
           rollupOptions: {
-            // react/react-dom are peer deps — keep them external so the
-            // consumer's bundler dedupes a single copy.
-            external: ['react', 'react-dom', 'react/jsx-runtime'],
+            // Peer deps (react) and real deps (acorn, sucrase) both stay
+            // external: the consumer's package manager installs them, so
+            // bundling a copy in here would inflate the package and defeat
+            // deduplication. Sucrase alone is most of half a megabyte.
+            external: (id) =>
+              ['react', 'react-dom', 'react/jsx-runtime', 'acorn', 'sucrase'].includes(id) ||
+              id.startsWith('sucrase/') ||
+              id.startsWith('acorn/'),
             output: {
               globals: {
                 react: 'React',

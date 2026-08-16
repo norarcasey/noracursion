@@ -41,6 +41,11 @@ export interface RunOptions {
   readonly maxLoopIterations?: number
   /** Recursion depth before a `recursion-depth` error. */
   readonly maxCallDepth?: number
+  /**
+   * Values injected into the interpreted program's global scope — the live
+   * structure and the instrumentation helpers the bridge supplies (§3.4).
+   */
+  readonly globals?: ReadonlyMap<string, Value>
 }
 
 const DEFAULT_STEP_BUDGET = 10_000
@@ -78,6 +83,10 @@ class Interpreter {
 
     this.globalEnv = Env.global()
     for (const [name, value] of createGlobals((text) => this.logs.push(text))) {
+      this.globalEnv.declare(name, 'const', value)
+    }
+    // Injected last so a host handle wins over a builtin of the same name.
+    for (const [name, value] of options.globals ?? []) {
       this.globalEnv.declare(name, 'const', value)
     }
   }
@@ -142,6 +151,24 @@ class Interpreter {
   private fail(node: AnyNode, message: string, hint: string): never {
     const { line, column } = positionOf(node)
     throw runtimeError(message, line, column, hint)
+  }
+
+  /**
+   * Run host code and give whatever it throws a line number.
+   *
+   * A handle from `bridge/` raises a plain `RangeError` when an index is out of
+   * bounds. Left alone that surfaces as an unpositioned stack trace, which is
+   * the one thing §3.3 forbids; this turns it into an ordinary runtime error
+   * pointing at the line that did it.
+   */
+  private guard<T>(node: AnyNode, body: () => T): T {
+    try {
+      return body()
+    } catch (error) {
+      if (error instanceof NoracursionError) throw error
+      const message = error instanceof Error ? error.message : String(error)
+      this.fail(node, message, `Check the values used on line ${positionOf(node).line}.`)
+    }
   }
 
   // --- statements ----------------------------------------------------------
@@ -660,7 +687,9 @@ class Interpreter {
         'Only functions can be called.',
       )
     }
-    if (callee.type === 'native') return callee.call(args, this.nativeContext(node))
+    if (callee.type === 'native') {
+      return this.guard(node, () => callee.call(args, this.nativeContext(node)))
+    }
     if (callee.type === 'native-generator') {
       return yield* callee.call(args, this.nativeContext(node))
     }
@@ -834,6 +863,11 @@ class Interpreter {
     }
 
     if (isValueObject(object)) {
+      const indexed = object.indexed
+      if (indexed !== undefined) {
+        if (typeof key === 'number') return this.guard(node, () => indexed.get(key))
+        if (key === 'length') return this.guard(node, () => indexed.length())
+      }
       const name = String(key)
       const own = object.properties.get(name)
       if (own !== undefined || object.properties.has(name)) return own
@@ -878,6 +912,11 @@ class Interpreter {
       )
     }
     if (isValueObject(object)) {
+      const indexed = object.indexed
+      if (indexed !== undefined && typeof key === 'number') {
+        this.guard(node, () => indexed.set(key, value))
+        return
+      }
       object.properties.set(String(key), value)
       return
     }
@@ -891,6 +930,14 @@ class Interpreter {
   private iterableToArray(value: Value, node: AnyNode): Value[] {
     if (Array.isArray(value)) return [...value]
     if (typeof value === 'string') return [...value]
+    if (isValueObject(value) && value.indexed !== undefined) {
+      const indexed = value.indexed
+      return this.guard(node, () => {
+        const items: Value[] = []
+        for (let index = 0; index < indexed.length(); index += 1) items.push(indexed.get(index))
+        return items
+      })
+    }
     this.fail(
       node,
       `\`for...of\` needs an array or a string, but got ${typeName(value)}.`,

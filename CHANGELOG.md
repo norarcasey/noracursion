@@ -36,7 +36,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A node with one child gets a phantom sibling so it visibly leans to its own
   side. `prefers-reduced-motion` snaps to the final positions. `<Noracursion />`
   now draws the structure named by `structure` and `initialData`; a structure
-  without a model yet says so instead of rendering a blank stage. (137 tests.)
+  without a model yet says so instead of rendering a blank stage.
+- **M4 — the bridge, and code that runs.** The live structure is injected into
+  interpreted code as `arr`, `list` or `tree`, alongside `visit`, `compare`,
+  `swap`, `setColor`, `mark` and `log`. Mutating the structure is what moves the
+  picture; the helpers only annotate, so code that never calls `visit()` still
+  animates. A run is recorded once as a filmstrip of frames, which makes
+  stepping backward an index decrement. `<Noracursion />` takes `code`,
+  `autoPlay`, `speedMs`, the budgets, and the `onStep` / `onEvent` /
+  `onComplete` / `onRuntimeError` escape hatches; `useRun` is exported for
+  headless use. `acorn` and `sucrase` are now external to the library build
+  rather than bundled into it. (162 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

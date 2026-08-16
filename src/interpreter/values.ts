@@ -27,12 +27,29 @@ export type Value =
   | NativeGeneratorFunction
   | ClassValue
 
-/** An object literal, or an instance of an interpreted class. */
+/**
+ * Index access for a host-provided handle.
+ *
+ * This is what lets the injected `arr` be written the way an array is actually
+ * written — `arr[j] > arr[j + 1]`, `arr.length`, `arr[i] = v` — while the
+ * elements themselves stay in `core/`, where their node ids live. Without it a
+ * sorting snippet would read `arr.get(j) > arr.get(j + 1)`, which is not the
+ * code anyone is trying to teach.
+ */
+export interface IndexedAccess {
+  length(): number
+  get(index: number): Value
+  set(index: number, value: Value): void
+}
+
+/** An object literal, an instance of an interpreted class, or a host handle. */
 export interface ValueObject {
   readonly type: 'object'
   /** Non-null when this object came from `new`. */
   readonly classRef: ClassValue | null
   readonly properties: Map<string, Value>
+  /** Present only on host handles that behave like arrays. */
+  readonly indexed?: IndexedAccess
 }
 
 export type FunctionNode = FunctionDeclaration | FunctionExpression | ArrowFunctionExpression

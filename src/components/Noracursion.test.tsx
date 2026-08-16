@@ -1,6 +1,23 @@
-import { render, screen } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Noracursion } from './Noracursion'
+
+const SORT = `
+for (let i = 0; i < arr.length; i++) {
+  for (let j = 0; j < arr.length - i - 1; j++) {
+    compare(j, j + 1)
+    if (arr[j] > arr[j + 1]) swap(j, j + 1)
+  }
+}
+`.trimStart()
+
+/** The labels currently drawn inside the node circles, left to right. */
+function drawnValues(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('.nrc__node')).map(
+    (node) => node.querySelector('text')?.textContent ?? '',
+  )
+}
 
 describe('<Noracursion />', () => {
   afterEach(() => {
@@ -141,5 +158,149 @@ describe('<Noracursion />', () => {
   it('renders without touching the DOM at module scope (SSR-safe import)', async () => {
     const mod = await import('../index')
     expect(typeof mod.Noracursion).toBe('function')
+  })
+})
+
+describe('<Noracursion /> running code', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('draws the structure unchanged until the code is played', () => {
+    const { container } = render(
+      <Noracursion structure="array" operation="sort" initialData={[3, 1, 2]} code={SORT} />,
+    )
+    expect(drawnValues(container)).toEqual(['3', '1', '2'])
+    expect(screen.getByText(/step 0 of \d+/)).toBeInTheDocument()
+  })
+
+  it('animates to the sorted array when it plays', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <Noracursion
+        structure="array"
+        operation="sort"
+        initialData={[3, 1, 2]}
+        code={SORT}
+        autoPlay
+        speedMs={1}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(2_000)
+    })
+    expect(drawnValues(container)).toEqual(['1', '2', '3'])
+  })
+
+  it('keeps a node id with its value as the cells move', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <Noracursion
+        structure="array"
+        operation="sort"
+        initialData={[2, 1]}
+        code={`swap(0, 1)`}
+        autoPlay
+        speedMs={1}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    const nodes = Array.from(container.querySelectorAll('.nrc__node'))
+    // The element that was second is now first, and it is the same element —
+    // which is what lets CSS transition it across rather than redraw it.
+    expect(nodes.map((node) => node.getAttribute('data-nrc-node-id'))).toEqual(['a2', 'a1'])
+    expect(drawnValues(container)).toEqual(['1', '2'])
+  })
+
+  it('paints compared nodes while it runs', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <Noracursion
+        structure="array"
+        operation="sort"
+        initialData={[2, 1]}
+        code={`compare(0, 1)`}
+        autoPlay
+        speedMs={1}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(container.querySelectorAll('[data-nrc-state="compared"]')).toHaveLength(2)
+  })
+
+  it('reports steps, events and completion to the consumer', () => {
+    vi.useFakeTimers()
+    const onStep = vi.fn()
+    const onEvent = vi.fn()
+    const onComplete = vi.fn()
+    render(
+      <Noracursion
+        structure="array"
+        operation="sort"
+        initialData={[2, 1]}
+        code={`swap(0, 1)\nlog('done')`}
+        autoPlay
+        speedMs={1}
+        onStep={onStep}
+        onEvent={onEvent}
+        onComplete={onComplete}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    // Every step is reported, not just the frame that survived the batch.
+    // At speedMs=1 many timer ticks land inside one React render, and dropping
+    // the ones in between would silently lose events.
+    expect(onStep.mock.calls[0][0]).toMatchObject({ line: 1, phase: 'statement' })
+    expect(onStep).toHaveBeenCalledTimes(onComplete.mock.calls[0][0].steps)
+    expect(onEvent.mock.calls.map((call) => call[0].type)).toEqual(['swap', 'log'])
+    expect(onComplete).toHaveBeenCalledTimes(1)
+    expect(onComplete.mock.calls[0][0]).toMatchObject({ completed: true, logs: ['done'] })
+  })
+
+  it('surfaces a runaway loop instead of hanging', () => {
+    const onRuntimeError = vi.fn()
+    render(
+      <Noracursion
+        structure="array"
+        operation="sort"
+        initialData={[1, 2]}
+        code={`let i = 0\nwhile (i < 10) { swap(0, 1) }`}
+        maxLoopIterations={20}
+        onRuntimeError={onRuntimeError}
+      />,
+    )
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent('This loop ran 20 times and never stopped.')
+    expect(alert).toHaveTextContent('`i` started as 0 and is still 0')
+    expect(onRuntimeError).toHaveBeenCalledTimes(1)
+    expect(onRuntimeError.mock.calls[0][0].detail.kind).toBe('loop-budget')
+  })
+
+  it('survives StrictMode double-invocation', () => {
+    // The house-style regression guard: the transport is one pure reducer, so
+    // React 18 running updaters twice cannot corrupt the frame index.
+    vi.useFakeTimers()
+    const { container } = render(
+      <StrictMode>
+        <Noracursion
+          structure="array"
+          operation="sort"
+          initialData={[3, 1, 2]}
+          code={SORT}
+          autoPlay
+          speedMs={1}
+        />
+      </StrictMode>,
+    )
+    act(() => {
+      vi.advanceTimersByTime(2_000)
+    })
+    expect(drawnValues(container)).toEqual(['1', '2', '3'])
   })
 })
