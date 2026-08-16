@@ -22,8 +22,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the fix from the shape of the value (`current = current.next;`);
   `recursion-depth` names the function and writes a base case using its own
   parameter; `step-budget` stops a program that is merely slow.
-- Golden trace, budget, subset-semantics and type-stripping test suites
-  (72 tests).
+- Golden trace, budget, subset-semantics and type-stripping test suites.
+- **M2 — core models.** `ArrayStructure`, `LinkedList` and `BinarySearchTree`,
+  each with an imperative API and each serializing to the normalized `VizModel`
+  with stable node ids. BST deletion splices the in-order successor into place
+  rather than copying its value down, and array swaps carry ids with the
+  elements, so both read as motion rather than as relabelling. Rotation
+  primitives are included so id stability can be tested now rather than
+  discovered under a red-black tree in M7. (100 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and
