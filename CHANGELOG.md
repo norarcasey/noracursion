@@ -32,7 +32,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   discovered under a red-black tree in M7.
 - **M3 — layout and the renderer.** Pure layout functions (`row`, `chain`, and a
   Reingold–Tilford `tidyTree` in Buchheim's linear-time form) and an SVG
-  renderer whose nodes *and edges* move by CSS transition keyed on stable ids.
+  renderer whose nodes _and edges_ move by CSS transition keyed on stable ids.
   A node with one child gets a phantom sibling so it visibly leans to its own
   side. `prefers-reduced-motion` snaps to the final positions. `<Noracursion />`
   now draws the structure named by `structure` and `initialData`; a structure
