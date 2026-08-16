@@ -3,6 +3,7 @@ export { Noracursion } from './components/Noracursion'
 export type { NoracursionProps } from './components/Noracursion'
 
 export type {
+  ColorMode,
   DrawableStructure,
   LabelMode,
   Language,
@@ -11,6 +12,19 @@ export type {
   Structure,
   TraversalOrder,
 } from './types'
+
+/**
+ * The snippet library. `hasSnippet` is the honest answer to "does this
+ * `(structure, operation)` combination exist?" — §2 declares those as two
+ * independent unions, so their cross product cannot say on its own.
+ */
+export {
+  getSnippet,
+  hasSnippet,
+  snippetKey,
+  snippetVariants,
+  type SnippetRequest,
+} from './snippets'
 
 // The headless engine, for consumers who want the run without the picture.
 export { useRun, type RunController, type UseRunOptions } from './ui/useRun'

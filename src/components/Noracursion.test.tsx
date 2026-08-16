@@ -12,6 +12,13 @@ for (let i = 0; i < arr.length; i++) {
 }
 `.trimStart()
 
+/** The code the editor currently holds. */
+function editorValue(): string {
+  const editor = screen.getByRole('textbox', { name: /editable source/i })
+  if (!(editor instanceof HTMLTextAreaElement)) throw new Error('the editor is not a textarea')
+  return editor.value
+}
+
 /** The labels currently drawn inside the node circles, left to right. */
 function drawnValues(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('.nrc__node')).map(
@@ -37,11 +44,35 @@ describe('<Noracursion />', () => {
     expect(screen.getByText('A blurb from the consumer.')).toBeInTheDocument()
   })
 
-  it('omits the heading when title is absent or null', () => {
+  it('omits the title heading when title is absent or null', () => {
+    // Level 2 is the title; the inspector panels legitimately carry their own
+    // level-3 headings.
     const { rerender } = render(<Noracursion structure="array" operation="sort" />)
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
     rerender(<Noracursion structure="array" operation="sort" title={null} />)
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+  })
+
+  it('picks a built-in snippet when no code is given', () => {
+    render(<Noracursion structure="binary-search-tree" operation="search" />)
+    expect(editorValue()).toContain('tree.left(current)')
+  })
+
+  it('switches to the iterative snippet when recursion is off', () => {
+    const { rerender } = render(<Noracursion structure="binary-search-tree" operation="traverse" />)
+    expect(editorValue()).toContain('function walk')
+
+    rerender(<Noracursion structure="binary-search-tree" operation="traverse" recursion={false} />)
+    // The prop's whole purpose: the same walk, holding the stack yourself.
+    expect(editorValue()).toContain('const stack = []')
+    expect(editorValue()).not.toContain('function walk')
+  })
+
+  it('says so plainly when there is no example for the operation', () => {
+    render(<Noracursion structure="array" operation="balance" />)
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Noracursion has no balance example for the array yet.',
+    )
   })
 
   it('captions the example with its structure and operation', () => {

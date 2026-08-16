@@ -21,6 +21,19 @@
   line-height: 1.5;
 }
 
+.demo__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #28335f;
+  border-radius: 999px;
+  color: #9fb0e8;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .demo__examples {
   display: flex;
   flex-direction: column;

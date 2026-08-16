@@ -263,6 +263,37 @@ function treeRuntime(data: readonly Cell[]): Runtime {
   }
 
   const treeHandle = handle([
+    // Link-level primitives, so a snippet can do the comparing and the linking
+    // itself rather than hiding the algorithm behind `tree.insert(v)`.
+    ['root', native('root', () => tree.rootValue())],
+    ['left', native('left', (args, ctx) => tree.leftOf(toCell(args[0], ctx, 'left')))],
+    ['right', native('right', (args, ctx) => tree.rightOf(toCell(args[0], ctx, 'right')))],
+    [
+      'setRoot',
+      mutating('setRoot', (args, ctx) => void tree.setRoot(toCell(args[0], ctx, 'setRoot'))),
+    ],
+    [
+      'attachLeft',
+      mutating(
+        'attachLeft',
+        (args, ctx) =>
+          void tree.attachLeft(
+            toCell(args[0], ctx, 'attachLeft'),
+            toCell(args[1], ctx, 'attachLeft'),
+          ),
+      ),
+    ],
+    [
+      'attachRight',
+      mutating(
+        'attachRight',
+        (args, ctx) =>
+          void tree.attachRight(
+            toCell(args[0], ctx, 'attachRight'),
+            toCell(args[1], ctx, 'attachRight'),
+          ),
+      ),
+    ],
     ['has', native('has', (args, ctx) => tree.has(toCell(args[0], ctx, 'has')))],
     ['size', native('size', () => tree.size)],
     ['height', native('height', () => tree.height())],

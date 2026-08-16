@@ -145,6 +145,63 @@ export class BinarySearchTree {
     return true
   }
 
+  // --- link-level primitives -------------------------------------------------
+  //
+  // `insert` decides where a value goes; these let interpreted code decide
+  // instead. That difference is the whole premise: a snippet that calls
+  // `tree.insert(6)` is a black box, and flipping its `<` to a `>` would change
+  // nothing on screen. With these, the snippet does the comparing and the
+  // linking, so wrong code builds a visibly wrong tree.
+  //
+  // Nodes are addressed by value, which works because this tree rejects
+  // duplicates, and keeps the whole runtime surface in `Cell`s rather than
+  // handing interpreted code a node object to lose track of.
+
+  /** The value at the root, or null when the tree is empty. */
+  rootValue(): Cell | null {
+    return this.root === null ? null : this.root.value
+  }
+
+  leftOf(value: Cell): Cell | null {
+    const node = this.locate(value)?.node.left
+    return node === null || node === undefined ? null : node.value
+  }
+
+  rightOf(value: Cell): Cell | null {
+    const node = this.locate(value)?.node.right
+    return node === null || node === undefined ? null : node.value
+  }
+
+  /** Plants the first node. Throws if the tree already has a root. */
+  setRoot(value: Cell): void {
+    if (this.root !== null) {
+      throw new Error(`The tree already has a root (${String(this.root.value)}).`)
+    }
+    this.root = { id: this.ids.create(), value, left: null, right: null }
+    this.count = 1
+  }
+
+  attachLeft(parent: Cell, value: Cell): void {
+    this.attach(parent, value, 'left')
+  }
+
+  attachRight(parent: Cell, value: Cell): void {
+    this.attach(parent, value, 'right')
+  }
+
+  private attach(parent: Cell, value: Cell, side: 'left' | 'right'): void {
+    const found = this.locate(parent)
+    if (found === null) throw new Error(`There is no node holding ${String(parent)}.`)
+    if (found.node[side] !== null) {
+      throw new Error(`${String(parent)} already has a ${side} child.`)
+    }
+    if (this.locate(value) !== null) {
+      throw new Error(`${String(value)} is already in the tree.`)
+    }
+    found.node[side] = { id: this.ids.create(), value, left: null, right: null }
+    this.count += 1
+  }
+
   inOrder(): Cell[] {
     const values: Cell[] = []
     const visit = (node: TreeNode | null): void => {

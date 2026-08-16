@@ -21,8 +21,11 @@ import {
   type LabelMode,
   type Language,
   type Operation,
+  type SortAlgorithm,
   type Structure,
+  type TraversalOrder,
 } from '../types'
+import { getSnippet } from '../snippets'
 import { Controls } from '../ui/Controls'
 import { Editor } from '../ui/Editor'
 import { Legend } from '../ui/Legend'
@@ -47,12 +50,26 @@ export interface NoracursionProps {
   operation: Operation
   /** Values to build the structure from. Defaults to a small sample set. */
   initialData?: ReadonlyArray<number | string>
+  /** Only meaningful for `traverse`. Default `'in-order'`. */
+  traversalOrder?: TraversalOrder
+  /** Only meaningful for `sort`. Default `'bubble'`. */
+  sortAlgorithm?: SortAlgorithm
+
+  /**
+   * When false, the built-in snippet switches to an iterative implementation —
+   * explicit stack, queue or pointer loops. Default `true`.
+   *
+   * Both variants do the same work in the same order, so the picture is
+   * identical and only the shape of the code changes. That is the whole point
+   * of the prop, and it is asserted for every snippet in the library.
+   */
+  recursion?: boolean
 
   /* --- code panel --- */
   /**
-   * TypeScript to run against the structure. The live structure is injected as
-   * `arr`, `list` or `tree`, alongside `visit`, `compare`, `swap`, `setColor`,
-   * `mark` and `log`. Omit it and the component just draws the structure.
+   * Overrides the built-in snippet. The live structure is injected as `arr`,
+   * `list` or `tree`, alongside `visit`, `compare`, `swap`, `setColor`, `mark`
+   * and `log`.
    */
   code?: string
   /** Default `'typescript'`. Anything else is shown but not executed (§4). */
@@ -121,6 +138,9 @@ export function Noracursion({
   structure,
   operation,
   initialData,
+  traversalOrder,
+  sortAlgorithm,
+  recursion = true,
   code,
   language = 'typescript',
   editable = true,
@@ -152,10 +172,20 @@ export function Noracursion({
   const data = useMemo<readonly Cell[]>(() => provided, [dataKey])
 
   const drawable = isDrawable(structure)
-  // Only TypeScript executes; the rest are shown for comparison (§4).
-  const runnable = drawable && language === 'typescript' && code !== undefined
 
-  const source = useEditableCode(code ?? '')
+  // A prop that changes the program reselects the snippet (§2). `useEditableCode`
+  // is what keeps that from throwing away edits: it offers the new source rather
+  // than swapping it in underneath the reader.
+  const builtIn = useMemo(
+    () => getSnippet({ structure, operation, language, recursion, traversalOrder, sortAlgorithm }),
+    [structure, operation, language, recursion, traversalOrder, sortAlgorithm],
+  )
+  const program = code ?? builtIn
+
+  // Only TypeScript executes; the rest are shown for comparison (§4).
+  const runnable = drawable && language === 'typescript' && program !== null
+
+  const source = useEditableCode(program ?? '')
   const [speed, setSpeed] = useState(speedMs)
   useEffect(() => setSpeed(speedMs), [speedMs])
 
@@ -258,6 +288,8 @@ export function Noracursion({
         </div>
       )}
 
+      {drawable && program === null && <NoExample structure={structure} operation={operation} />}
+
       {drawable ? (
         <Stage
           layout={layout}
@@ -291,7 +323,7 @@ export function Noracursion({
 
       {run.error !== null && <TeachingPanel error={run.error} />}
 
-      {showCode && code !== undefined && (
+      {showCode && program !== null && (
         <>
           {source.incoming !== null && (
             <IncomingCodeBanner onLoad={source.acceptIncoming} onKeep={source.dismissIncoming} />
@@ -313,6 +345,21 @@ export function Noracursion({
       <p className="nrc__caption" style={captionStyle}>
         {`${structure} · ${operation}`}
       </p>
+    </div>
+  )
+}
+
+/**
+ * A drawable structure with no example for this operation. Distinct from
+ * `NotYetDrawable`: the picture is fine, it is the program that is missing.
+ */
+function NoExample({ structure, operation }: { structure: Structure; operation: Operation }) {
+  return (
+    <div className="nrc__notice" role="status" style={noticeStyle}>
+      <strong>
+        {`Noracursion has no ${operation} example for the ${STRUCTURE_LABELS[structure]} yet.`}
+      </strong>{' '}
+      Pass your own <code>code</code> to run something against it.
     </div>
   )
 }

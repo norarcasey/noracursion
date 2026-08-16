@@ -56,7 +56,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reads, and a concrete next edit. Adds `language`, `editable`, `showCode`,
   `showControls`, `showLegend`, `showPanels` and `colorMode`. Editing the code
   re-runs it; a `code` prop that changes underneath your edits offers a choice
-  instead of discarding them. (192 tests.)
+  instead of discarding them.
+- **M6 — the snippet library.** 18 variants across the three structures, each in
+  a recursive and an iterative form, selected automatically from `structure`,
+  `operation`, `recursion`, `traversalOrder` and `sortAlgorithm`. Every pair is
+  asserted to emit the same events in the same order and leave the structure in
+  the same state, so turning `recursion` off changes the shape of the code and
+  nothing else. Tree snippets work link by link — `tree.left(v)`,
+  `tree.attachRight(p, v)` — so the comparison that decides where a value lands
+  is in the code the reader can edit, not hidden behind `tree.insert(v)`.
+  (272 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and
