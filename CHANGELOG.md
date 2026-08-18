@@ -96,7 +96,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no business constraining a program it did not write. The union is derived
   from `BUILT_IN_OPERATIONS`, and a test asserts every pairing it allows has a
   snippet behind it, so the type and the library cannot drift apart.
-  Red-black and AVL trees gained the four traversals along the way. (438 tests.)
+  Red-black and AVL trees gained the four traversals along the way.
+
+### Fixed
+
+- `for (let i = …)` now gives every iteration its own binding, so a closure made
+  inside the loop captures that turn's value rather than the counter's final
+  one. It was behaving like `var` — which is the one distinction the classic
+  closures-in-a-loop lesson exists to draw.
+- Frames whose step changed neither the structure nor the paint now share a
+  model object instead of each holding a fresh copy of every node. Also lets the
+  layout memo skip recomputing while stepping.
+- The output panel no longer rebuilds the log from the whole filmstrip on every
+  render, which was quadratic across a long playback.
+- The picture's description now names the connections, not only the nodes — for
+  a graph or a trie the edges _are_ the structure — and stops listing values
+  after two dozen rather than reading out half a kilobyte of numbers.
+- Graph snippets take their source and target from the data. Written in as `'A'`
+  and `'E'`, a graph with neither ran to completion having printed nothing.
+- `useEditableCode` no longer calls setters from inside another setter's
+  updater, which React 18 double-invokes under StrictMode. (449 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

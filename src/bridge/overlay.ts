@@ -19,6 +19,16 @@ import type { VizEvent } from './events'
  *   node (a red-black colour, a `pivot` badge) rather than a moment.
  */
 export class Overlay {
+  /**
+   * Bumped whenever `apply` actually changes the paint.
+   *
+   * The frame builder compares it to decide whether last frame's model can be
+   * handed out again. Most steps evaluate an expression and paint nothing, and
+   * a fresh copy of every node for each of those is the difference between a
+   * few megabytes and forty.
+   */
+  private generation = 0
+
   private visiting: string | null = null
   private compared: readonly [string, string] | null = null
   private swapped: readonly [string, string] | null = null
@@ -27,7 +37,13 @@ export class Overlay {
   /** Unordered node pairs that the traversal has walked between. */
   private readonly trail = new Set<string>()
 
+  version(): number {
+    return this.generation
+  }
+
   apply(event: VizEvent): void {
+    // Every branch below except `log` changes what is painted.
+    if (event.type !== 'log') this.generation += 1
     switch (event.type) {
       case 'visit': {
         if (this.visiting !== null && this.visiting !== event.nodeId) {

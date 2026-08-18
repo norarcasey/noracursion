@@ -54,8 +54,11 @@ drain([start])
 
 export const GRAPH_SEARCH_ITER = `// Depth-first: a stack, so it commits to one branch and follows it as far
 // as it goes before trying anything else.
-const target = 'E'
-const start = graph.nodes()[0]
+// Taken from the data rather than written in, so the snippet still does
+// something when the graph is not the one it was written against.
+const nodes = graph.nodes()
+const start = nodes[0]
+const target = nodes[nodes.length - 1]
 const seen = []
 const stack = [start]
 
@@ -79,7 +82,8 @@ while (stack.length > 0) {
 `
 
 export const GRAPH_SEARCH_REC = `// The same depth-first order, using the call stack instead of one you carry.
-const target = 'E'
+const nodes = graph.nodes()
+const target = nodes[nodes.length - 1]
 const seen = []
 let done = false
 
@@ -101,13 +105,16 @@ function explore(node: string): void {
   }
 }
 
-explore(graph.nodes()[0])
+explore(nodes[0])
 `
 
 const DIJKSTRA_SETUP = `// Dijkstra: always extend the cheapest route found so far. Because every
 // weight is positive, the first time a node is settled its distance is final.
-const source = 'A'
+// The source comes from the data. Written in as 'A', a graph without an 'A'
+// would leave every distance at Infinity and the whole algorithm would run to
+// completion having printed nothing at all.
 const nodes = graph.nodes()
+const source = nodes[0]
 const dist = []
 const settled = []
 

@@ -379,3 +379,53 @@ describe('unsupported syntax', () => {
     expect(result.error.message).toBe(`Noracursion can't run ${construct} yet.`)
   })
 })
+
+describe('loop bindings', () => {
+  it('gives every iteration of a `let` loop its own binding', () => {
+    // The classic closure lesson. `var` shares one binding for the whole loop
+    // and `let` does not, and a teaching interpreter that blurs the two is
+    // teaching the wrong thing.
+    expect(
+      logs(`
+const fs = []
+for (let i = 0; i < 3; i++) fs.push(() => i)
+log(fs[0]() + ',' + fs[1]() + ',' + fs[2]())
+`),
+    ).toEqual(['0,1,2'])
+  })
+
+  it('keeps one binding for the whole loop when it is `var`', () => {
+    expect(
+      logs(`
+const fs = []
+for (var i = 0; i < 3; i++) fs.push(() => i)
+log(fs[0]() + ',' + fs[2]())
+`),
+    ).toEqual(['3,3'])
+  })
+
+  it('gives each turn of a for...of its own binding too', () => {
+    expect(
+      logs(`
+const fs = []
+for (const v of [1, 2, 3]) fs.push(() => v)
+log(fs[0]() + ',' + fs[2]())
+`),
+    ).toEqual(['1,3'])
+  })
+
+  it('still lets the body change the counter', () => {
+    // The per-iteration copy has to be written back, or the loop would never
+    // see what the body did and would run forever.
+    expect(
+      logs(`
+let n = 0
+for (let i = 0; i < 6; i++) {
+  i = i + 1
+  n = n + 1
+}
+log(n)
+`),
+    ).toEqual(['3'])
+  })
+})

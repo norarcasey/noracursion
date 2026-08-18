@@ -76,15 +76,17 @@ export function useEditableCode(code: string): EditableCode {
     setCommitted((current) => (current === draft ? current : draft))
   }, [draft])
 
+  // Read `incoming` and then set three pieces of state, rather than setting
+  // them from inside `setIncoming`'s updater. React 18 double-invokes updaters
+  // under StrictMode, so a setter called from within one runs twice — the exact
+  // shape the house style warns about, and harmless here only by luck.
   const acceptIncoming = useCallback(() => {
-    setIncoming((next) => {
-      if (next === null) return null
-      editedRef.current = false
-      setDraftState(next)
-      setCommitted(next)
-      return null
-    })
-  }, [])
+    if (incoming === null) return
+    editedRef.current = false
+    setDraftState(incoming)
+    setCommitted(incoming)
+    setIncoming(null)
+  }, [incoming])
 
   const dismissIncoming = useCallback(() => setIncoming(null), [])
 

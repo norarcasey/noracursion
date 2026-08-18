@@ -359,3 +359,30 @@ describe('<Noracursion /> running code', () => {
     expect(drawnValues(container)).toEqual(['1', '2', '3'])
   })
 })
+
+describe('<Noracursion /> accessibility of the description', () => {
+  it('names the connections, not just the nodes', () => {
+    // For a graph the edges *are* the structure; a list of labels describes
+    // almost nothing.
+    render(<Noracursion structure="graph" operation="traverse" />)
+    const name = screen.getByRole('img').getAttribute('aria-label') ?? ''
+    expect(name).toContain('5 nodes')
+    expect(name).toMatch(/\d+ connections/)
+    expect(name).toContain('weights')
+  })
+
+  it('stops listing values before the description becomes an obstacle', () => {
+    render(
+      <Noracursion
+        structure="array"
+        operation="traverse"
+        initialData={Array.from({ length: 120 }, (_, index) => index)}
+      />,
+    )
+    const name = screen.getByRole('img').getAttribute('aria-label') ?? ''
+    expect(name).toContain('120 nodes')
+    expect(name).toContain('and 96 more')
+    // Half a kilobyte of numbers read aloud is not a description.
+    expect(name.length).toBeLessThan(200)
+  })
+})

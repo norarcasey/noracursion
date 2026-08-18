@@ -253,3 +253,26 @@ while (i < list.length) {
     expect(result.error?.message).toContain('needs a number or a string')
   })
 })
+
+describe('frame memory', () => {
+  it('hands out the same model for steps that changed nothing', () => {
+    // A model per step is a fresh copy of every node, and most steps evaluate
+    // an expression and paint nothing. Sharing costs nothing and is also what
+    // lets the host skip re-running layout.
+    const result = run('array', [3, 1, 2], `let a = 1\nlet b = 2\nlet c = 3`)
+    const distinct = new Set(result.frames.map((frame) => frame.model))
+    expect(result.frames.length).toBeGreaterThan(3)
+    expect(distinct.size).toBe(1)
+  })
+
+  it('makes a new model as soon as something actually changes', () => {
+    const result = run('array', [2, 1], `let a = 1\nswap(0, 1)\nlet b = 2`)
+    expect(new Set(result.frames.map((frame) => frame.model)).size).toBeGreaterThan(1)
+    expect(labels(finalFrame(result))).toEqual(['1', '2'])
+  })
+
+  it('makes a new model when only the paint changed', () => {
+    const result = run('array', [1, 2], `visit(0)\nvisit(1)`)
+    expect(new Set(result.frames.map((frame) => frame.model)).size).toBeGreaterThan(1)
+  })
+})

@@ -270,9 +270,16 @@ class Interpreter {
 
       case 'ForStatement': {
         const scope = env.child()
+        // `for (let i = …)` gives every iteration its *own* `i`, so a closure
+        // made inside the body captures that iteration's value rather than
+        // whatever the counter finished on. `var` does not — one binding for
+        // the whole loop — and getting this wrong turns the single most
+        // commonly taught closure lesson into a lie.
+        let perIteration: string[] = []
         if (node.init !== null && node.init !== undefined) {
           if (node.init.type === 'VariableDeclaration') {
             yield* this.execVariableDeclaration(node.init, scope)
+            if (node.init.kind !== 'var') perIteration = declaredNames(node.init)
           } else {
             yield* this.evaluate(node.init, scope)
           }
@@ -289,7 +296,15 @@ class Interpreter {
             loop.record(scope)
           }
           loop.tick(scope, this.parsed)
-          if (yield* this.runLoopBody(node.body, scope)) return
+
+          // A fresh copy of the loop variables for this turn round. The body
+          // runs against those; the update runs against the shared ones, so
+          // the copy the body closed over keeps the value it had.
+          const iteration = copyBindings(scope, perIteration)
+          const broke = yield* this.runLoopBody(node.body, iteration)
+          writeBack(iteration, scope, perIteration)
+          if (broke) return
+
           if (node.update !== null && node.update !== undefined) {
             yield* this.evaluate(node.update, scope)
           }
@@ -1348,6 +1363,36 @@ function hoistVars(body: readonly Statement[], env: Env): void {
       }
       return true
     })
+  }
+}
+
+/** The plain names a declaration introduces. Patterns are handled elsewhere. */
+function declaredNames(node: VariableDeclaration): string[] {
+  const names: string[] = []
+  for (const declarator of node.declarations) {
+    if (declarator.id.type === 'Identifier') names.push(declarator.id.name)
+  }
+  return names
+}
+
+/** A child scope holding this iteration's own copy of the loop variables. */
+function copyBindings(scope: Env, names: readonly string[]): Env {
+  if (names.length === 0) return scope
+  const iteration = scope.child()
+  for (const name of names) {
+    const binding = scope.lookup(name)
+    if (binding !== undefined) iteration.declare(name, binding.kind, binding.value)
+  }
+  return iteration
+}
+
+/** Carries any change the body made back to the binding the update sees. */
+function writeBack(iteration: Env, scope: Env, names: readonly string[]): void {
+  if (iteration === scope) return
+  for (const name of names) {
+    const from = iteration.lookup(name)
+    const to = scope.lookup(name)
+    if (from !== undefined && to !== undefined) to.value = from.value
   }
 }
 

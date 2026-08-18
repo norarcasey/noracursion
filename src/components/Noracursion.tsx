@@ -240,12 +240,21 @@ export function Noracursion({
 
   const model: VizModel = run.frame.model
   const layout = useMemo(() => layoutModel(model), [model])
+  // Walked once per run, not once per render. Rebuilding the log from the
+  // whole filmstrip on every step is O(index) each time, which over a full
+  // playback is quadratic — invisible on six nodes and painful on a long run.
+  const logHistory = useMemo(() => {
+    const lines: string[] = []
+    const countAt: number[] = []
+    for (const frame of run.frames) {
+      for (const event of frame.events) if (event.type === 'log') lines.push(event.text)
+      countAt.push(lines.length)
+    }
+    return { lines, countAt }
+  }, [run.frames])
   const logs = useMemo(
-    () =>
-      run.frames
-        .slice(0, run.index + 1)
-        .flatMap((frame) => frame.events.flatMap((e) => (e.type === 'log' ? [e.text] : []))),
-    [run.frames, run.index],
+    () => logHistory.lines.slice(0, logHistory.countAt[run.index] ?? 0),
+    [logHistory, run.index],
   )
 
   // Transport controls act on what is on screen, so a press commits any edit
@@ -501,12 +510,35 @@ function useReportedRun({
   }, [error])
 }
 
-/** A description of the picture for readers who cannot see it. */
+/** How many node labels are worth reading aloud before the list stops helping. */
+const SPOKEN_LABEL_LIMIT = 24
+
+/**
+ * A description of the picture for readers who cannot see it.
+ *
+ * Two things it has to get right that the obvious version does not. It names
+ * the connections, because for a graph or a trie the edges *are* the structure
+ * and a list of node labels describes almost nothing. And it stops listing
+ * after a couple of dozen values: an unbroken half-kilobyte of numbers read
+ * aloud is not an accessible description, it is an obstacle.
+ */
 function describe(structure: Structure, model: VizModel): string {
   const name = STRUCTURE_LABELS[structure]
   if (model.nodes.length === 0) return `An empty ${name}.`
-  const labels = model.nodes.map((node) => node.label).join(', ')
-  return `${name} with ${model.nodes.length} nodes: ${labels}.`
+
+  const labels = model.nodes.slice(0, SPOKEN_LABEL_LIMIT).map((node) => node.label)
+  const rest = model.nodes.length - labels.length
+  const listed = rest > 0 ? `${labels.join(', ')}, and ${rest} more` : labels.join(', ')
+
+  const weighted = model.edges.filter((edge) => edge.label !== undefined).length
+  const connections =
+    model.edges.length === 0
+      ? ''
+      : ` ${model.edges.length} ${model.edges.length === 1 ? 'connection' : 'connections'}${
+          weighted > 0 ? ', some carrying weights' : ''
+        }.`
+
+  return `${name} with ${model.nodes.length} nodes: ${listed}.${connections}`
 }
 
 // Structurally load-bearing styles are inline so an unstyled import still

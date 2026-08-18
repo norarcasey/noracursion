@@ -55,8 +55,10 @@ export function buildRun(options: BuildRunOptions): Run {
 
   let base = runtime.toVizModel()
   let seenVersion = runtime.version()
+  let seenPaint = overlay.version()
+  let decorated = overlay.decorate(base)
 
-  const frames: Frame[] = [{ step: null, model: overlay.decorate(base), events: [] }]
+  const frames: Frame[] = [{ step: null, model: decorated, events: [] }]
   const generator = interpret(code, { ...budgets, globals: runtime.globals })
 
   try {
@@ -65,13 +67,20 @@ export function buildRun(options: BuildRunOptions): Run {
       const step = next.value
       for (const event of step.events) overlay.apply(event)
 
+      // Re-serialize only when the structure changed, and re-paint only when
+      // the overlay did. When neither has, last frame's model is still exactly
+      // right — and sharing it also means the host's layout memo sees the same
+      // object and skips recomputing.
       const version = runtime.version()
-      if (version !== seenVersion) {
-        base = runtime.toVizModel()
+      const paint = overlay.version()
+      if (version !== seenVersion || paint !== seenPaint) {
+        if (version !== seenVersion) base = runtime.toVizModel()
+        decorated = overlay.decorate(base)
         seenVersion = version
+        seenPaint = paint
       }
 
-      frames.push({ step, model: overlay.decorate(base), events: step.events })
+      frames.push({ step, model: decorated, events: step.events })
       next = generator.next()
     }
     return { frames, summary: next.value, error: null, handleName: runtime.handleName }

@@ -516,3 +516,31 @@ function asStructureName(value: string): DrawableStructure {
   if (structure === undefined) throw new Error(`unknown structure ${value}`)
   return structure
 }
+
+describe('snippets against data they were not written for', () => {
+  it('routes a graph whose nodes are not called A to E', () => {
+    // The source and target are taken from the data. Written in as 'A', a
+    // graph without an 'A' would run to completion having printed nothing.
+    const run = buildRun({
+      structure: 'graph',
+      data: [
+        { label: 'start', x: 0, y: 0, edges: [{ to: 'mid', weight: 2 }] },
+        { label: 'mid', x: 80, y: 0, edges: [{ to: 'end', weight: 3 }] },
+        { label: 'end', x: 160, y: 0 },
+      ],
+      code: getSnippet({ structure: 'graph', operation: 'shortest-path' }) ?? '',
+    })
+    expect(run.error).toBeNull()
+    expect(run.summary.logs).toEqual(['start = 0', 'mid = 2', 'end = 5'])
+  })
+
+  it('searches a graph whose nodes are not called A to E', () => {
+    const run = buildRun({
+      structure: 'graph',
+      data: [1, 2, 3],
+      code: getSnippet({ structure: 'graph', operation: 'search' }) ?? '',
+    })
+    expect(run.error).toBeNull()
+    expect(run.summary.logs).toEqual(['reached 3'])
+  })
+})
