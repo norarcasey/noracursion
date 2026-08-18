@@ -43,6 +43,16 @@ export interface VizModel {
   readonly nodes: readonly VizNode[]
   readonly edges: readonly VizEdge[]
   readonly layoutHint: 'tree' | 'chain' | 'row' | 'graph'
+  /**
+   * Whether each node's array position should be captioned beneath it.
+   *
+   * A property of the structure, not of the layout: a heap is drawn as a tree
+   * but every one of its operations is index arithmetic, so it needs the
+   * indices as much as an array does. A linked list carries a position too,
+   * and showing it would be noise — the position is not what the structure is
+   * about.
+   */
+  readonly indexLabels?: boolean
 }
 
 /** The values a structure can hold. Ordered structures need them comparable. */

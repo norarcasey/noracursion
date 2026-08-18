@@ -296,7 +296,7 @@ export function Noracursion({
           labelMode={labelMode}
           colorMode={colorMode}
           speedMs={speed}
-          showIndexLabels={model.layoutHint === 'row'}
+          showIndexLabels={model.indexLabels === true}
           ariaLabel={describe(structure, model)}
         />
       ) : (

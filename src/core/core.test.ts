@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { ArrayStructure } from './arrayStructure'
 import { LinkedList } from './linkedList'
 import { compare } from './model'
+import { AvlTree } from './avlTree'
 import { DoublyLinkedList } from './doublyLinkedList'
+import { BinaryHeap } from './heap'
 import { Queue } from './queue'
 import { RedBlackTree } from './redBlackTree'
 import { Stack } from './stack'
@@ -317,5 +319,96 @@ describe('DoublyLinkedList', () => {
     expect(model.edges.filter((edge) => edge.kind === 'next')).toHaveLength(2)
     expect(model.edges.filter((edge) => edge.kind === 'prev')).toHaveLength(2)
     expect(model.layoutHint).toBe('chain')
+  })
+})
+
+describe('BinaryHeap', () => {
+  it('keeps the smallest at the root, and only the root', () => {
+    const heap = new BinaryHeap([8, 3, 10, 1, 6, 14], 'min')
+    expect(heap.peek()).toBe(1)
+    expect(heap.isValid()).toBe(true)
+    // A heap is not a sorted array, and pretending otherwise is the usual
+    // misunderstanding this picture exists to correct.
+    expect(heap.values()).not.toEqual([1, 3, 6, 8, 10, 14])
+  })
+
+  it('keeps the largest at the root when it is a max-heap', () => {
+    const heap = new BinaryHeap([8, 3, 10, 1, 6, 14], 'max')
+    expect(heap.peek()).toBe(14)
+    expect(heap.isValid()).toBe(true)
+  })
+
+  it('pops in order, which is what makes heapsort work', () => {
+    const heap = new BinaryHeap([8, 3, 10, 1, 6, 14], 'min')
+    const drained = []
+    while (heap.size > 0) drained.push(heap.pop())
+    expect(drained).toEqual([1, 3, 6, 8, 10, 14])
+    expect(heap.pop()).toBeUndefined()
+  })
+
+  it('derives the tree from the indices rather than storing it', () => {
+    const model = new BinaryHeap([5, 3, 8, 1], 'min').toVizModel()
+    expect(model.layoutHint).toBe('tree')
+    expect(model.indexLabels).toBe(true)
+    expect(model.nodes.map((node) => node.meta?.index)).toEqual([0, 1, 2, 3])
+    // Node 0 parents nodes 1 and 2; node 1 parents node 3.
+    expect(model.edges).toHaveLength(3)
+    expect(model.edges[0].from).toBe(model.nodes[0].id)
+    expect(model.edges[0].to).toBe(model.nodes[1].id)
+  })
+
+  it('leaves the sift to the caller when appending or removing the last cell', () => {
+    const heap = new BinaryHeap([1, 2, 3], 'min')
+    heap.append(0)
+    // Deliberately broken: restoring it is the algorithm, and the algorithm
+    // belongs in the snippet.
+    expect(heap.isValid()).toBe(false)
+    expect(heap.removeLast()).toBe(0)
+    expect(heap.isValid()).toBe(true)
+  })
+})
+
+describe('AvlTree', () => {
+  it('stays balanced where a plain search tree degenerates', () => {
+    const values = [1, 2, 3, 4, 5, 6, 7]
+    const avl = new AvlTree(values)
+    expect(avl.isBalanced()).toBe(true)
+    expect(avl.height()).toBe(3)
+    expect(new BinarySearchTree(values).height()).toBe(7)
+    expect(avl.inOrder()).toEqual(values)
+  })
+
+  it('stays balanced across 200 random trees', () => {
+    let state = 20260817
+    const random = (): number => {
+      state = (state * 1103515245 + 12345) % 2147483648
+      return state / 2147483648
+    }
+    for (let trial = 0; trial < 200; trial += 1) {
+      const size = 1 + Math.floor(random() * 40)
+      const values = Array.from({ length: size }, () => Math.floor(random() * 100))
+      const tree = new AvlTree(values)
+      expect(tree.isBalanced()).toBe(true)
+      expect(tree.inOrder()).toEqual([...new Set(values)].sort((a, b) => a - b))
+    }
+  })
+
+  it('measures heights rather than caching them', () => {
+    const tree = new AvlTree([10, 5, 20])
+    expect(tree.heightOf(10)).toBe(2)
+    expect(tree.heightOf(5)).toBe(1)
+    // An absent subtree is height 0, so a snippet can ask without checking.
+    expect(tree.heightOf(null)).toBe(0)
+    expect(tree.balanceOf(10)).toBe(0)
+  })
+
+  it('draws the balance factor on any node that has one', () => {
+    const tree = new AvlTree([10, 5, 20, 3])
+    const model = tree.toVizModel()
+    const root = model.nodes.find((node) => node.label === '10')
+    expect(root?.meta?.balance).toBe(1)
+    expect(root?.meta?.mark).toBe('+1')
+    const leaf = model.nodes.find((node) => node.label === '3')
+    expect(leaf?.meta?.mark).toBeUndefined()
   })
 })

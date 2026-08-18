@@ -103,6 +103,6 @@ export class ArrayStructure {
       meta: { index },
     }))
     // A row has no edges: adjacency is carried by position.
-    return { nodes, edges: [], layoutHint: 'row' }
+    return { nodes, edges: [], layoutHint: 'row', indexLabels: true }
   }
 }

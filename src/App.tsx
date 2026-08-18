@@ -60,6 +60,28 @@ export default function App() {
         />
 
         <Noracursion
+          structure="min-heap"
+          operation="insert"
+          recursion={recursion}
+          title="Sifting up a min-heap"
+          initialData={[8, 3, 10, 1, 6, 14]}
+          autoPlay
+          speedMs={280}
+          blurb="Stored as an array, drawn as the tree its index arithmetic implies: a node's parent is at (i - 1) / 2. Only the root is promised — a heap is not a sorted array."
+        />
+
+        <Noracursion
+          structure="avl-tree"
+          operation="insert"
+          recursion={recursion}
+          title="AVL: rebalancing on the way back up"
+          initialData={[8, 3, 10, 1, 6, 14]}
+          autoPlay
+          speedMs={300}
+          blurb="Each node wears its balance factor. When one tips past ±1 it rotates — watch the badge appear, then the subtree swing."
+        />
+
+        <Noracursion
           structure="stack"
           operation="traverse"
           recursion={recursion}

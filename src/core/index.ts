@@ -5,6 +5,8 @@ export { RedBlackTree, type RedBlack } from './redBlackTree'
 export { DoublyLinkedList } from './doublyLinkedList'
 export { Stack } from './stack'
 export { Queue } from './queue'
+export { AvlTree } from './avlTree'
+export { BinaryHeap, type HeapKind } from './heap'
 export { compare, edgeId, IdFactory } from './model'
 export type {
   Cell,

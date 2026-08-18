@@ -72,7 +72,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   snippet, in both recursive and iterative form. Rotations move nodes and never
   rebuild them, which the id-stability suite now asserts on a real rebalance.
   Stack and queue mark their working ends; the doubly linked list draws its
-  backward links in their own lane. (334 tests.)
+  backward links in their own lane.
+- **M7 (part 2) — heaps and AVL trees.** Binary heaps are stored as arrays and
+  drawn as the tree their index arithmetic implies, with the indices captioned
+  beneath so `(i - 1) / 2` and `2i + 1` stay visible. `append` and `removeLast`
+  deliberately leave the heap property broken, because restoring it is the
+  algorithm and the algorithm belongs in the snippet. AVL nodes wear their
+  balance factor, and measure their heights rather than caching them. Both
+  hold their invariants across 200 fixed-seed random trees. (372 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

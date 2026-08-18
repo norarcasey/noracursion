@@ -67,6 +67,9 @@ export const DRAWABLE_STRUCTURES = [
   'queue',
   'binary-search-tree',
   'red-black-tree',
+  'avl-tree',
+  'min-heap',
+  'max-heap',
 ] as const
 
 export type DrawableStructure = (typeof DRAWABLE_STRUCTURES)[number]

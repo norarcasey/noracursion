@@ -24,6 +24,9 @@ const STRUCTURE_FOR: Readonly<Record<string, DrawableStructure>> = {
   queue: 'queue',
   'binary-search-tree': 'binary-search-tree',
   'red-black-tree': 'red-black-tree',
+  'avl-tree': 'avl-tree',
+  'min-heap': 'min-heap',
+  'max-heap': 'max-heap',
 }
 
 function runVariant(variant: ReturnType<typeof snippetVariants>[number], recursion: boolean): Run {
@@ -87,7 +90,7 @@ describe('every snippet runs', () => {
       expect(hasSnippet({ ...variant, recursion: true })).toBe(true)
       expect(hasSnippet({ ...variant, recursion: false })).toBe(true)
     }
-    expect(VARIANTS.length).toBeGreaterThanOrEqual(31)
+    expect(VARIANTS.length).toBeGreaterThanOrEqual(39)
   })
 })
 
@@ -301,5 +304,59 @@ describe('doubly linked list', () => {
     const backward = model.edges.filter((edge) => edge.kind === 'prev')
     expect(forward).toHaveLength(DATA.length - 1)
     expect(backward).toHaveLength(DATA.length - 1)
+  })
+})
+
+describe('heaps', () => {
+  it('sifts a new value up into place, keeping the heap property', () => {
+    for (const kind of ['min-heap', 'max-heap'] as const) {
+      for (const recursion of [true, false]) {
+        const run = runVariant({ structure: kind, operation: 'insert' }, recursion)
+        expect(run.error).toBeNull()
+        const values = labels(finalModel(run)).map(Number)
+        expect(values).toContain(2)
+        // Checked on the picture: every child sits below its parent.
+        for (let i = 1; i < values.length; i += 1) {
+          const parent = values[Math.floor((i - 1) / 2)]
+          if (kind === 'min-heap') expect(values[i]).toBeGreaterThanOrEqual(parent)
+          else expect(values[i]).toBeLessThanOrEqual(parent)
+        }
+      }
+    }
+  })
+
+  it('removes the root — the smallest, or the largest', () => {
+    expect(runVariant({ structure: 'min-heap', operation: 'delete' }, true).summary.logs).toEqual([
+      'removed 1',
+    ])
+    expect(runVariant({ structure: 'max-heap', operation: 'delete' }, true).summary.logs).toEqual([
+      'removed 14',
+    ])
+  })
+
+  it('shows that a heap is not a sorted array', () => {
+    const run = runVariant({ structure: 'min-heap', operation: 'traverse' }, true)
+    expect(run.summary.logs[0]).toBe('1')
+    expect(run.summary.logs).not.toEqual(['1', '3', '6', '8', '10', '14'])
+  })
+})
+
+describe('AVL tree', () => {
+  it('rebalances after the insert, and says so on the way', () => {
+    for (const recursion of [true, false]) {
+      const run = runVariant({ structure: 'avl-tree', operation: 'insert' }, recursion)
+      expect(run.error).toBeNull()
+      expect(labels(finalModel(run))).toContain('4')
+      // Every node's balance factor stays within one, checked on the picture.
+      for (const node of finalModel(run).nodes) {
+        const balance = node.meta?.balance
+        expect(typeof balance === 'number' && Math.abs(balance) <= 1).toBe(true)
+      }
+    }
+  })
+
+  it('searches like any other search tree', () => {
+    const run = runVariant({ structure: 'avl-tree', operation: 'search' }, true)
+    expect(run.summary.logs).toEqual(['found 6'])
   })
 })

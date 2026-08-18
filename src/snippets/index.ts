@@ -46,6 +46,19 @@ import {
   TREE_TRAVERSE_PRE_REC,
 } from './tree'
 import { RB_INSERT_ITER, RB_INSERT_REC, RB_SEARCH_ITER, RB_SEARCH_REC } from './redBlackTree'
+import { AVL_INSERT_ITER, AVL_INSERT_REC, AVL_SEARCH_ITER, AVL_SEARCH_REC } from './avlTree'
+import {
+  HEAP_TRAVERSE_ITER,
+  HEAP_TRAVERSE_REC,
+  MAX_HEAP_DELETE_ITER,
+  MAX_HEAP_DELETE_REC,
+  MAX_HEAP_INSERT_ITER,
+  MAX_HEAP_INSERT_REC,
+  MIN_HEAP_DELETE_ITER,
+  MIN_HEAP_DELETE_REC,
+  MIN_HEAP_INSERT_ITER,
+  MIN_HEAP_INSERT_REC,
+} from './heap'
 import {
   DLIST_DELETE_ITER,
   DLIST_DELETE_REC,
@@ -151,6 +164,16 @@ const PAIRS: Readonly<Record<string, SnippetPair>> = {
   'queue:insert': { iter: QUEUE_INSERT_ITER, rec: QUEUE_INSERT_REC },
   'queue:delete': { iter: QUEUE_DELETE_ITER, rec: QUEUE_DELETE_REC },
   'queue:traverse': { iter: QUEUE_TRAVERSE_ITER, rec: QUEUE_TRAVERSE_REC },
+
+  'avl-tree:insert': { iter: AVL_INSERT_ITER, rec: AVL_INSERT_REC },
+  'avl-tree:search': { iter: AVL_SEARCH_ITER, rec: AVL_SEARCH_REC },
+
+  'min-heap:insert': { iter: MIN_HEAP_INSERT_ITER, rec: MIN_HEAP_INSERT_REC },
+  'min-heap:delete': { iter: MIN_HEAP_DELETE_ITER, rec: MIN_HEAP_DELETE_REC },
+  'min-heap:traverse': { iter: HEAP_TRAVERSE_ITER, rec: HEAP_TRAVERSE_REC },
+  'max-heap:insert': { iter: MAX_HEAP_INSERT_ITER, rec: MAX_HEAP_INSERT_REC },
+  'max-heap:delete': { iter: MAX_HEAP_DELETE_ITER, rec: MAX_HEAP_DELETE_REC },
+  'max-heap:traverse': { iter: HEAP_TRAVERSE_ITER, rec: HEAP_TRAVERSE_REC },
 }
 
 const DEFAULT_TRAVERSAL: TraversalOrder = 'in-order'
@@ -224,6 +247,9 @@ const STRUCTURES: readonly string[] = [
   'queue',
   'binary-search-tree',
   'red-black-tree',
+  'avl-tree',
+  'min-heap',
+  'max-heap',
 ]
 const OPERATIONS: readonly string[] = ['insert', 'delete', 'search', 'traverse', 'sort']
 const TRAVERSALS: readonly string[] = ['in-order', 'pre-order', 'post-order', 'level-order']
@@ -237,6 +263,9 @@ function asStructure(value: string): Structure {
   if (value === 'queue') return 'queue'
   if (value === 'binary-search-tree') return 'binary-search-tree'
   if (value === 'red-black-tree') return 'red-black-tree'
+  if (value === 'avl-tree') return 'avl-tree'
+  if (value === 'min-heap') return 'min-heap'
+  if (value === 'max-heap') return 'max-heap'
   return 'array'
 }
 

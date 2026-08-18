@@ -1,4 +1,6 @@
 import { ArrayStructure } from '../core/arrayStructure'
+import { AvlTree } from '../core/avlTree'
+import { BinaryHeap } from '../core/heap'
 import { DoublyLinkedList } from '../core/doublyLinkedList'
 import { LinkedList } from '../core/linkedList'
 import type { Cell, NodeColor, VizModel } from '../core/model'
@@ -87,6 +89,12 @@ export function createRuntime(structure: DrawableStructure, data: readonly Cell[
       return treeRuntime(data)
     case 'red-black-tree':
       return redBlackRuntime(data)
+    case 'avl-tree':
+      return avlRuntime(data)
+    case 'min-heap':
+      return heapRuntime(data, 'min')
+    case 'max-heap':
+      return heapRuntime(data, 'max')
   }
 }
 
@@ -663,6 +671,139 @@ function redBlackRuntime(data: readonly Cell[]): Runtime {
         tree.setColor(toCell(target, ctx, 'setColor'), toRedBlack(color, ctx))
       }),
     ]),
+    toVizModel: () => tree.toVizModel(),
+    version: get,
+  }
+}
+
+function heapRuntime(data: readonly Cell[], kind: 'min' | 'max'): Runtime {
+  const heap = new BinaryHeap(data, kind)
+  const { mutating, get } = versioned()
+  const resolve = positional(
+    () => heap.size,
+    (i) => heap.idAt(i),
+    'heap',
+  )
+
+  // The same swap the array has, because a heap sift *is* a sequence of swaps
+  // between an index and the index its arithmetic points at.
+  const swap = mutating('swap', (args, ctx) => {
+    const i = toIndex(args[0], ctx, 'swap')
+    const j = toIndex(args[1], ctx, 'swap')
+    const a = requireId(heap.idAt(i), i, heap.size, 'heap', 'swap', ctx)
+    const b = requireId(heap.idAt(j), j, heap.size, 'heap', 'swap', ctx)
+    heap.swap(i, j)
+    ctx.emit({ type: 'swap', a, b, i, j })
+    return undefined
+  })
+
+  const handleValue = handle(
+    [
+      ['size', native('size', () => heap.size)],
+      ['peek', native('peek', () => heap.peek())],
+      ['get', native('get', (args, ctx) => heap.get(toIndex(args[0], ctx, 'get')))],
+      ['kind', native('kind', () => heap.kind)],
+      ['toArray', native('toArray', () => heap.values())],
+      // Deliberately unsifted: restoring the heap property is the algorithm,
+      // and the algorithm belongs in the snippet.
+      ['append', mutating('append', (args, ctx) => heap.append(toCell(args[0], ctx, 'append')))],
+      ['removeLast', mutating('removeLast', () => heap.removeLast())],
+      ['swap', swap],
+    ],
+    {
+      length: () => heap.size,
+      get: (index) => heap.get(index),
+      set: () => {
+        throw new TypeError('A heap changes with append, removeLast and swap, not by index.')
+      },
+    },
+  )
+
+  return {
+    handleName: 'heap',
+    globals: new Map<string, Value>([
+      ['heap', handleValue],
+      ['swap', swap],
+      ...instrumentation(resolve),
+    ]),
+    toVizModel: () => heap.toVizModel(),
+    version: get,
+  }
+}
+
+function avlRuntime(data: readonly Cell[]): Runtime {
+  const tree = new AvlTree(data)
+  const { mutating, get } = versioned()
+
+  const idOf = (value: Value, ctx: NativeContext, where: string): string => {
+    const id = tree.idOf(toCell(value, ctx, where))
+    if (id === undefined) {
+      ctx.fail(
+        `${where} refers to ${stringify(value)}, which is not in the tree.`,
+        'Only values the tree currently holds can be highlighted.',
+      )
+    }
+    return id
+  }
+
+  const handleValue = handle([
+    ['root', native('root', () => tree.rootValue())],
+    ['left', native('left', (args, ctx) => tree.leftOf(toCell(args[0], ctx, 'left')))],
+    ['right', native('right', (args, ctx) => tree.rightOf(toCell(args[0], ctx, 'right')))],
+    ['parent', native('parent', (args, ctx) => tree.parentOf(toCell(args[0], ctx, 'parent')))],
+    // An absent subtree has height 0, so the snippet can ask about a missing
+    // child without checking for it first.
+    [
+      'height',
+      native('height', (args, ctx) =>
+        args.length === 0 || args[0] === null || args[0] === undefined
+          ? 0
+          : tree.heightOf(toCell(args[0], ctx, 'height')),
+      ),
+    ],
+    ['balance', native('balance', (args, ctx) => tree.balanceOf(toCell(args[0], ctx, 'balance')))],
+    ['has', native('has', (args, ctx) => tree.has(toCell(args[0], ctx, 'has')))],
+    ['size', native('size', () => tree.size)],
+    ['inOrder', native('inOrder', () => tree.inOrder())],
+    [
+      'setRoot',
+      mutating('setRoot', (args, ctx) => void tree.setRoot(toCell(args[0], ctx, 'setRoot'))),
+    ],
+    [
+      'attachLeft',
+      mutating(
+        'attachLeft',
+        (args, ctx) =>
+          void tree.attachLeft(
+            toCell(args[0], ctx, 'attachLeft'),
+            toCell(args[1], ctx, 'attachLeft'),
+          ),
+      ),
+    ],
+    [
+      'attachRight',
+      mutating(
+        'attachRight',
+        (args, ctx) =>
+          void tree.attachRight(
+            toCell(args[0], ctx, 'attachRight'),
+            toCell(args[1], ctx, 'attachRight'),
+          ),
+      ),
+    ],
+    [
+      'rotateLeft',
+      mutating('rotateLeft', (args, ctx) => tree.rotateLeft(toCell(args[0], ctx, 'rotateLeft'))),
+    ],
+    [
+      'rotateRight',
+      mutating('rotateRight', (args, ctx) => tree.rotateRight(toCell(args[0], ctx, 'rotateRight'))),
+    ],
+  ])
+
+  return {
+    handleName: 'tree',
+    globals: new Map<string, Value>([['tree', handleValue], ...instrumentation(idOf)]),
     toVizModel: () => tree.toVizModel(),
     version: get,
   }

@@ -57,7 +57,10 @@ export class Overlay {
   /** Applies the current paint to a freshly serialized model. */
   decorate(model: VizModel): VizModel {
     return {
-      layoutHint: model.layoutHint,
+      // Spread rather than listing the fields: this only paints nodes and
+      // edges, and anything else the structure declared about itself has to
+      // survive the trip untouched.
+      ...model,
       nodes: model.nodes.map((node) => {
         const state = this.stateOf(node.id)
         const color = this.colors.get(node.id) ?? node.color
