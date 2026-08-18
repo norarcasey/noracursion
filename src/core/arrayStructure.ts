@@ -16,10 +16,12 @@ interface ArrayCell {
  * moves nodes rather than recreating them.
  */
 export class ArrayStructure {
-  private readonly ids = new IdFactory('a')
+  private readonly ids: IdFactory
   private cells: ArrayCell[]
 
-  constructor(initial: readonly Cell[] = []) {
+  /** `prefix` keeps ids readable when another structure is built on this one. */
+  constructor(initial: readonly Cell[] = [], prefix = 'a') {
+    this.ids = new IdFactory(prefix)
     this.cells = initial.map((value) => ({ id: this.ids.create(), value }))
   }
 

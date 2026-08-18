@@ -45,6 +45,29 @@ import {
   TREE_TRAVERSE_PRE_ITER,
   TREE_TRAVERSE_PRE_REC,
 } from './tree'
+import { RB_INSERT_ITER, RB_INSERT_REC, RB_SEARCH_ITER, RB_SEARCH_REC } from './redBlackTree'
+import {
+  DLIST_DELETE_ITER,
+  DLIST_DELETE_REC,
+  DLIST_INSERT_ITER,
+  DLIST_INSERT_REC,
+  DLIST_SEARCH_ITER,
+  DLIST_SEARCH_REC,
+  DLIST_TRAVERSE_ITER,
+  DLIST_TRAVERSE_REC,
+  QUEUE_DELETE_ITER,
+  QUEUE_DELETE_REC,
+  QUEUE_INSERT_ITER,
+  QUEUE_INSERT_REC,
+  QUEUE_TRAVERSE_ITER,
+  QUEUE_TRAVERSE_REC,
+  STACK_DELETE_ITER,
+  STACK_DELETE_REC,
+  STACK_INSERT_ITER,
+  STACK_INSERT_REC,
+  STACK_TRAVERSE_ITER,
+  STACK_TRAVERSE_REC,
+} from './sequences'
 
 /** A recursive/iterative pair. Both must draw the same picture (§4). */
 export interface SnippetPair {
@@ -112,6 +135,22 @@ const PAIRS: Readonly<Record<string, SnippetPair>> = {
     iter: TREE_TRAVERSE_LEVEL_ITER,
     rec: TREE_TRAVERSE_LEVEL_REC,
   },
+
+  'red-black-tree:insert': { iter: RB_INSERT_ITER, rec: RB_INSERT_REC },
+  'red-black-tree:search': { iter: RB_SEARCH_ITER, rec: RB_SEARCH_REC },
+
+  'doubly-linked-list:search': { iter: DLIST_SEARCH_ITER, rec: DLIST_SEARCH_REC },
+  'doubly-linked-list:traverse': { iter: DLIST_TRAVERSE_ITER, rec: DLIST_TRAVERSE_REC },
+  'doubly-linked-list:insert': { iter: DLIST_INSERT_ITER, rec: DLIST_INSERT_REC },
+  'doubly-linked-list:delete': { iter: DLIST_DELETE_ITER, rec: DLIST_DELETE_REC },
+
+  'stack:insert': { iter: STACK_INSERT_ITER, rec: STACK_INSERT_REC },
+  'stack:delete': { iter: STACK_DELETE_ITER, rec: STACK_DELETE_REC },
+  'stack:traverse': { iter: STACK_TRAVERSE_ITER, rec: STACK_TRAVERSE_REC },
+
+  'queue:insert': { iter: QUEUE_INSERT_ITER, rec: QUEUE_INSERT_REC },
+  'queue:delete': { iter: QUEUE_DELETE_ITER, rec: QUEUE_DELETE_REC },
+  'queue:traverse': { iter: QUEUE_TRAVERSE_ITER, rec: QUEUE_TRAVERSE_REC },
 }
 
 const DEFAULT_TRAVERSAL: TraversalOrder = 'in-order'
@@ -177,7 +216,15 @@ export function snippetVariants(): Array<{
 
 // The registry keys are written by hand above, so these narrow rather than
 // assert: a typo in a key becomes a loud failure instead of a bad cast.
-const STRUCTURES: readonly string[] = ['array', 'linked-list', 'binary-search-tree']
+const STRUCTURES: readonly string[] = [
+  'array',
+  'linked-list',
+  'doubly-linked-list',
+  'stack',
+  'queue',
+  'binary-search-tree',
+  'red-black-tree',
+]
 const OPERATIONS: readonly string[] = ['insert', 'delete', 'search', 'traverse', 'sort']
 const TRAVERSALS: readonly string[] = ['in-order', 'pre-order', 'post-order', 'level-order']
 const SORTS: readonly string[] = ['bubble', 'insertion', 'selection', 'merge', 'quick', 'heap']
@@ -185,7 +232,11 @@ const SORTS: readonly string[] = ['bubble', 'insertion', 'selection', 'merge', '
 function asStructure(value: string): Structure {
   if (!STRUCTURES.includes(value)) throw new Error(`Unknown structure in snippet key: ${value}`)
   if (value === 'linked-list') return 'linked-list'
+  if (value === 'doubly-linked-list') return 'doubly-linked-list'
+  if (value === 'stack') return 'stack'
+  if (value === 'queue') return 'queue'
   if (value === 'binary-search-tree') return 'binary-search-tree'
+  if (value === 'red-black-tree') return 'red-black-tree'
   return 'array'
 }
 

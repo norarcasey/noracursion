@@ -19,7 +19,11 @@ const DATA: readonly Cell[] = [8, 3, 10, 1, 6, 14]
 const STRUCTURE_FOR: Readonly<Record<string, DrawableStructure>> = {
   array: 'array',
   'linked-list': 'linked-list',
+  'doubly-linked-list': 'doubly-linked-list',
+  stack: 'stack',
+  queue: 'queue',
   'binary-search-tree': 'binary-search-tree',
+  'red-black-tree': 'red-black-tree',
 }
 
 function runVariant(variant: ReturnType<typeof snippetVariants>[number], recursion: boolean): Run {
@@ -83,7 +87,7 @@ describe('every snippet runs', () => {
       expect(hasSnippet({ ...variant, recursion: true })).toBe(true)
       expect(hasSnippet({ ...variant, recursion: false })).toBe(true)
     }
-    expect(VARIANTS.length).toBeGreaterThanOrEqual(18)
+    expect(VARIANTS.length).toBeGreaterThanOrEqual(31)
   })
 })
 
@@ -183,7 +187,7 @@ describe('the registry is the source of truth', () => {
   it('reports nothing for a combination it does not implement', () => {
     // §6.5: an unimplemented combination must not be silently broken. The
     // component turns this into a plain notice naming what does work.
-    expect(hasSnippet({ structure: 'red-black-tree', operation: 'insert' })).toBe(false)
+    expect(hasSnippet({ structure: 'trie', operation: 'insert' })).toBe(false)
     expect(hasSnippet({ structure: 'array', operation: 'balance' })).toBe(false)
     expect(hasSnippet({ structure: 'binary-search-tree', operation: 'sort' })).toBe(false)
   })
@@ -212,5 +216,90 @@ describe('the registry is the source of truth', () => {
         recursion: false,
       }),
     ).toBe('binary-search-tree:traverse:typescript:post-order:iter')
+  })
+})
+
+describe('red-black tree', () => {
+  it('repairs itself, and the repair is visible as colours and rotations', () => {
+    for (const recursion of [true, false]) {
+      const run = runVariant({ structure: 'red-black-tree', operation: 'insert' }, recursion)
+      expect(run.error).toBeNull()
+      const script = eventScript(run)
+      // The fixup is in the snippet, so its work shows up as events.
+      expect(script.some((entry) => entry.startsWith('color'))).toBe(true)
+
+      const model = finalModel(run)
+      expect(labels(model)).toContain('4')
+      // Root black, and no red node with a red child — asserted on the picture
+      // the reader is actually looking at, not on the model behind it.
+      const byId = new Map(model.nodes.map((node) => [node.id, node]))
+      expect(model.nodes[0].color).toBe('black')
+      for (const edge of model.edges) {
+        const parent = byId.get(edge.from)
+        const child = byId.get(edge.to)
+        expect(parent?.color === 'red' && child?.color === 'red').toBe(false)
+      }
+    }
+  })
+
+  it('keeps the tree balanced enough to be worth the trouble', () => {
+    const run = runVariant({ structure: 'red-black-tree', operation: 'search' }, true)
+    expect(run.error).toBeNull()
+    expect(run.summary.logs).toEqual(['found 6'])
+  })
+})
+
+describe('stack and queue', () => {
+  it('reading a stack empties it and puts it back exactly as it was', () => {
+    const run = runVariant({ structure: 'stack', operation: 'traverse' }, true)
+    // Top first — that is the only order a stack can be read in.
+    expect(run.summary.logs).toEqual(['14', '6', '1', '10', '3', '8'])
+    expect(labels(finalModel(run))).toEqual(DATA.map(String))
+  })
+
+  it('reading a queue goes all the way round and lands where it started', () => {
+    const run = runVariant({ structure: 'queue', operation: 'traverse' }, true)
+    expect(run.summary.logs).toEqual(DATA.map(String))
+    expect(labels(finalModel(run))).toEqual(DATA.map(String))
+  })
+
+  it('pops the most recent and dequeues the oldest', () => {
+    expect(runVariant({ structure: 'stack', operation: 'delete' }, true).summary.logs).toEqual([
+      'popped 14',
+      'popped 6',
+    ])
+    expect(runVariant({ structure: 'queue', operation: 'delete' }, true).summary.logs).toEqual([
+      'dequeued 8',
+      'dequeued 3',
+    ])
+  })
+})
+
+describe('doubly linked list', () => {
+  it('walks out and back again', () => {
+    const run = runVariant({ structure: 'doubly-linked-list', operation: 'traverse' }, true)
+    expect(run.summary.logs).toEqual([...DATA.map(String), ...[...DATA].reverse().map(String)])
+  })
+
+  it('finds a value by walking forward, like a singly linked list', () => {
+    const run = runVariant({ structure: 'doubly-linked-list', operation: 'search' }, true)
+    expect(run.summary.logs).toEqual(['found 6 at position 4'])
+  })
+
+  it('removes a value and mends both links', () => {
+    const run = runVariant({ structure: 'doubly-linked-list', operation: 'delete' }, true)
+    expect(labels(finalModel(run))).toEqual(['8', '3', '1', '6', '14'])
+    const model = finalModel(run)
+    expect(model.edges.filter((edge) => edge.kind === 'next')).toHaveLength(4)
+    expect(model.edges.filter((edge) => edge.kind === 'prev')).toHaveLength(4)
+  })
+
+  it('draws a backward link for every forward one', () => {
+    const run = runVariant({ structure: 'doubly-linked-list', operation: 'search' }, true)
+    const model = finalModel(run)
+    const forward = model.edges.filter((edge) => edge.kind === 'next')
+    const backward = model.edges.filter((edge) => edge.kind === 'prev')
+    expect(forward).toHaveLength(DATA.length - 1)
+    expect(backward).toHaveLength(DATA.length - 1)
   })
 })

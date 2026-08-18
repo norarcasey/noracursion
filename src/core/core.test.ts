@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { ArrayStructure } from './arrayStructure'
 import { LinkedList } from './linkedList'
 import { compare } from './model'
+import { DoublyLinkedList } from './doublyLinkedList'
+import { Queue } from './queue'
+import { RedBlackTree } from './redBlackTree'
+import { Stack } from './stack'
 import { BinarySearchTree } from './tree'
 
 /** Correctness of the M2 models, and the `VizModel` they serialize to (§3.1). */
@@ -182,5 +186,136 @@ describe('BinarySearchTree', () => {
     const tree = new BinarySearchTree(['m', 'c', 'x'])
     expect(tree.inOrder()).toEqual(['c', 'm', 'x'])
     expect(tree.has('c')).toBe(true)
+  })
+})
+
+describe('RedBlackTree', () => {
+  /** A fixed-seed generator, so a failure is reproducible rather than a rumour. */
+  function makeRandom(seed: number): () => number {
+    let state = seed
+    return () => {
+      state = (state * 1103515245 + 12345) % 2147483648
+      return state / 2147483648
+    }
+  }
+
+  /** The four red-black properties, checked against the serialized picture. */
+  function violation(tree: RedBlackTree): string | null {
+    const model = tree.toVizModel()
+    if (model.nodes.length === 0) return null
+    if (model.nodes[0].color !== 'black') return 'the root is not black'
+    if (tree.blackHeight() === null) return 'black heights differ between paths'
+    const byId = new Map(model.nodes.map((node) => [node.id, node]))
+    for (const edge of model.edges) {
+      if (byId.get(edge.from)?.color === 'red' && byId.get(edge.to)?.color === 'red') {
+        return `a red node has a red child (${byId.get(edge.from)?.label})`
+      }
+    }
+    return null
+  }
+
+  it('holds every red-black property across 200 random trees', () => {
+    const random = makeRandom(20260817)
+    for (let trial = 0; trial < 200; trial += 1) {
+      const size = 1 + Math.floor(random() * 40)
+      const values = Array.from({ length: size }, () => Math.floor(random() * 100))
+      const tree = new RedBlackTree(values)
+      expect(violation(tree)).toBeNull()
+      expect(tree.inOrder()).toEqual([...new Set(values)].sort((a, b) => a - b))
+    }
+  })
+
+  it('stays shallow, which is the whole reason for the colours', () => {
+    const values = Array.from({ length: 63 }, (_, index) => index)
+    const balanced = new RedBlackTree(values)
+    const degenerate = new BinarySearchTree(values)
+    // Inserted in ascending order, a plain search tree becomes a linked list.
+    expect(degenerate.height()).toBe(63)
+    expect(balanced.height()).toBeLessThanOrEqual(2 * Math.log2(values.length + 1))
+  })
+
+  it('reads a missing child as black, the way the algorithm does', () => {
+    const tree = new RedBlackTree([10])
+    expect(tree.colorOf(10)).toBe('black')
+    expect(tree.colorOf(999)).toBeNull()
+    expect(tree.leftOf(10)).toBeNull()
+    expect(tree.parentOf(10)).toBeNull()
+  })
+
+  it('refuses to build something impossible', () => {
+    const tree = new RedBlackTree([10, 5])
+    expect(() => tree.setRoot(1)).toThrow(/already has a root/)
+    expect(() => tree.attachLeft(10, 3)).toThrow(/already has a left child/)
+    expect(() => tree.attachRight(10, 5)).toThrow(/already in the tree/)
+    expect(() => tree.attachRight(999, 1)).toThrow(/no node holding/)
+  })
+})
+
+describe('Stack and Queue', () => {
+  it('a stack is last in, first out', () => {
+    const stack = new Stack([1, 2])
+    stack.push(3)
+    expect(stack.peek()).toBe(3)
+    expect(stack.pop()).toBe(3)
+    expect(stack.toArray()).toEqual([1, 2])
+    expect(stack.size).toBe(2)
+    expect(new Stack().isEmpty()).toBe(true)
+    expect(new Stack().pop()).toBeUndefined()
+  })
+
+  it('a queue is first in, first out', () => {
+    const queue = new Queue([1, 2])
+    queue.enqueue(3)
+    expect(queue.peek()).toBe(1)
+    expect(queue.dequeue()).toBe(1)
+    expect(queue.toArray()).toEqual([2, 3])
+    expect(new Queue().isEmpty()).toBe(true)
+    expect(new Queue().dequeue()).toBeUndefined()
+  })
+
+  it('marks the ends, which is the only thing distinguishing the pictures', () => {
+    const stack = new Stack([1, 2, 3]).toVizModel()
+    expect(stack.nodes.map((node) => node.meta?.role)).toEqual([undefined, undefined, 'top'])
+
+    const queue = new Queue([1, 2, 3]).toVizModel()
+    expect(queue.nodes.map((node) => node.meta?.role)).toEqual(['front', undefined, 'back'])
+  })
+})
+
+describe('DoublyLinkedList', () => {
+  it('walks in both directions', () => {
+    const list = new DoublyLinkedList([1, 2, 3])
+    expect(list.toArray()).toEqual([1, 2, 3])
+    expect(list.toArrayReversed()).toEqual([3, 2, 1])
+  })
+
+  it('mends both links on every edit', () => {
+    const list = new DoublyLinkedList([1, 3])
+    list.insertAt(1, 2)
+    expect(list.toArray()).toEqual([1, 2, 3])
+    expect(list.toArrayReversed()).toEqual([3, 2, 1])
+
+    list.removeAt(0)
+    expect(list.toArray()).toEqual([2, 3])
+    expect(list.toArrayReversed()).toEqual([3, 2])
+
+    list.unshift(0)
+    expect(list.toArrayReversed()).toEqual([3, 2, 0])
+  })
+
+  it('empties completely from either end', () => {
+    const list = new DoublyLinkedList([1])
+    expect(list.removeAt(0)).toBe(1)
+    expect(list.length).toBe(0)
+    expect(list.toArray()).toEqual([])
+    expect(list.toArrayReversed()).toEqual([])
+    expect(list.removeAt(0)).toBeUndefined()
+  })
+
+  it('serializes a forward and a backward edge for each adjacent pair', () => {
+    const model = new DoublyLinkedList([1, 2, 3]).toVizModel()
+    expect(model.edges.filter((edge) => edge.kind === 'next')).toHaveLength(2)
+    expect(model.edges.filter((edge) => edge.kind === 'prev')).toHaveLength(2)
+    expect(model.layoutHint).toBe('chain')
   })
 })

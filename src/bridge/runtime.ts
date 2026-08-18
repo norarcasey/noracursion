@@ -1,6 +1,10 @@
 import { ArrayStructure } from '../core/arrayStructure'
+import { DoublyLinkedList } from '../core/doublyLinkedList'
 import { LinkedList } from '../core/linkedList'
 import type { Cell, NodeColor, VizModel } from '../core/model'
+import { Queue } from '../core/queue'
+import { RedBlackTree, type RedBlack } from '../core/redBlackTree'
+import { Stack } from '../core/stack'
 import { BinarySearchTree } from '../core/tree'
 import type { NativeContext, NativeFunction, Value, ValueObject } from '../interpreter/values'
 import { stringify, typeName } from '../interpreter/values'
@@ -73,8 +77,16 @@ export function createRuntime(structure: DrawableStructure, data: readonly Cell[
       return arrayRuntime(data)
     case 'linked-list':
       return listRuntime(data)
+    case 'doubly-linked-list':
+      return doublyLinkedRuntime(data)
+    case 'stack':
+      return stackRuntime(data)
+    case 'queue':
+      return queueRuntime(data)
     case 'binary-search-tree':
       return treeRuntime(data)
+    case 'red-black-tree':
+      return redBlackRuntime(data)
   }
 }
 
@@ -334,7 +346,18 @@ type Resolve = (target: Value, ctx: NativeContext, where: string) => string
  * inside a loop over an array, `visit(value)` while walking down a tree — so
  * the difference is worth keeping rather than forcing one spelling on both.
  */
-function instrumentation(resolve: Resolve): Array<readonly [string, Value]> {
+function instrumentation(
+  resolve: Resolve,
+  /**
+   * Applies the colour to the structure itself.
+   *
+   * For most structures a colour is paint, and the overlay is the right place
+   * for it. For a red-black tree the colour is part of the data — §2 says it
+   * *is* the mnemonic — so the tree has to actually change, or its invariants
+   * and its picture would drift apart while both looked fine.
+   */
+  applyColor?: (target: Value, color: NodeColor, ctx: NativeContext) => void,
+): Array<readonly [string, Value]> {
   return [
     [
       'visit',
@@ -357,11 +380,10 @@ function instrumentation(resolve: Resolve): Array<readonly [string, Value]> {
     [
       'setColor',
       native('setColor', (args, ctx) => {
-        ctx.emit({
-          type: 'set-color',
-          nodeId: resolve(args[0], ctx, 'setColor'),
-          color: toColor(args[1], ctx),
-        })
+        const color = toColor(args[1], ctx)
+        const nodeId = resolve(args[0], ctx, 'setColor')
+        if (applyColor !== undefined) applyColor(args[0], color, ctx)
+        ctx.emit({ type: 'set-color', nodeId, color })
         return undefined
       }),
     ],
@@ -378,4 +400,270 @@ function instrumentation(resolve: Resolve): Array<readonly [string, Value]> {
       }),
     ],
   ]
+}
+
+// ---------------------------------------------------------------------------
+// M7 structures
+// ---------------------------------------------------------------------------
+
+/**
+ * Standalone with an explicit return type, for the same reason as the
+ * coercions above: `ctx.fail` only narrows inside a function that declares one.
+ */
+function requireId(
+  id: string | undefined,
+  index: number,
+  length: number,
+  noun: string,
+  where: string,
+  ctx: NativeContext,
+): string {
+  if (id !== undefined) return id
+  ctx.fail(
+    `${where} refers to index ${index}, which is outside the ${noun} (length ${length}).`,
+    'Indexes run from 0 to length - 1.',
+  )
+}
+
+/** Shared by every structure whose nodes are addressed by position. */
+function positional(
+  length: () => number,
+  idAt: (index: number) => string | undefined,
+  noun: string,
+): Resolve {
+  return (target, ctx, where) => {
+    const index = toIndex(target, ctx, where)
+    return requireId(idAt(index), index, length(), noun, where, ctx)
+  }
+}
+
+function versioned(): {
+  mutating: (n: string, c: NativeFunction['call']) => NativeFunction
+  get: () => number
+} {
+  let version = 0
+  return {
+    mutating: (name, call) =>
+      native(name, (args, ctx) => {
+        const result = call(args, ctx)
+        version += 1
+        return result
+      }),
+    get: () => version,
+  }
+}
+
+function doublyLinkedRuntime(data: readonly Cell[]): Runtime {
+  const list = new DoublyLinkedList(data)
+  const { mutating, get } = versioned()
+  const resolve = positional(
+    () => list.length,
+    (i) => list.idAt(i),
+    'list',
+  )
+
+  const handleValue = handle(
+    [
+      ['get', native('get', (args, ctx) => list.get(toIndex(args[0], ctx, 'get')))],
+      ['indexOf', native('indexOf', (args, ctx) => list.indexOf(toCell(args[0], ctx, 'indexOf')))],
+      ['toArray', native('toArray', () => list.toArray())],
+      ['toArrayReversed', native('toArrayReversed', () => list.toArrayReversed())],
+      ['push', mutating('push', (args, ctx) => void list.push(toCell(args[0], ctx, 'push')))],
+      [
+        'unshift',
+        mutating('unshift', (args, ctx) => void list.unshift(toCell(args[0], ctx, 'unshift'))),
+      ],
+      [
+        'insertAt',
+        mutating(
+          'insertAt',
+          (args, ctx) =>
+            void list.insertAt(toIndex(args[0], ctx, 'insertAt'), toCell(args[1], ctx, 'insertAt')),
+        ),
+      ],
+      [
+        'removeAt',
+        mutating('removeAt', (args, ctx) => list.removeAt(toIndex(args[0], ctx, 'removeAt'))),
+      ],
+      ['remove', mutating('remove', (args, ctx) => list.remove(toCell(args[0], ctx, 'remove')))],
+    ],
+    {
+      length: () => list.length,
+      get: (index) => list.get(index),
+      set: () => {
+        throw new TypeError('A linked list changes with insertAt / removeAt, not by index.')
+      },
+    },
+  )
+
+  return {
+    handleName: 'list',
+    globals: new Map<string, Value>([['list', handleValue], ...instrumentation(resolve)]),
+    toVizModel: () => list.toVizModel(),
+    version: get,
+  }
+}
+
+function stackRuntime(data: readonly Cell[]): Runtime {
+  const stack = new Stack(data)
+  const { mutating, get } = versioned()
+  const resolve = positional(
+    () => stack.size,
+    (i) => stack.idAt(i),
+    'stack',
+  )
+
+  const handleValue = handle(
+    [
+      ['size', native('size', () => stack.size)],
+      ['isEmpty', native('isEmpty', () => stack.isEmpty())],
+      ['peek', native('peek', () => stack.peek())],
+      ['toArray', native('toArray', () => stack.toArray())],
+      ['push', mutating('push', (args, ctx) => stack.push(toCell(args[0], ctx, 'push')))],
+      ['pop', mutating('pop', () => stack.pop())],
+    ],
+    {
+      length: () => stack.size,
+      get: (index) => stack.toArray()[index],
+      set: () => {
+        throw new TypeError('A stack changes with push and pop, not by index.')
+      },
+    },
+  )
+
+  return {
+    handleName: 'stack',
+    globals: new Map<string, Value>([['stack', handleValue], ...instrumentation(resolve)]),
+    toVizModel: () => stack.toVizModel(),
+    version: get,
+  }
+}
+
+function queueRuntime(data: readonly Cell[]): Runtime {
+  const queue = new Queue(data)
+  const { mutating, get } = versioned()
+  const resolve = positional(
+    () => queue.size,
+    (i) => queue.idAt(i),
+    'queue',
+  )
+
+  const handleValue = handle(
+    [
+      ['size', native('size', () => queue.size)],
+      ['isEmpty', native('isEmpty', () => queue.isEmpty())],
+      ['peek', native('peek', () => queue.peek())],
+      ['toArray', native('toArray', () => queue.toArray())],
+      [
+        'enqueue',
+        mutating('enqueue', (args, ctx) => queue.enqueue(toCell(args[0], ctx, 'enqueue'))),
+      ],
+      ['dequeue', mutating('dequeue', () => queue.dequeue())],
+    ],
+    {
+      length: () => queue.size,
+      get: (index) => queue.toArray()[index],
+      set: () => {
+        throw new TypeError('A queue changes with enqueue and dequeue, not by index.')
+      },
+    },
+  )
+
+  return {
+    handleName: 'queue',
+    globals: new Map<string, Value>([['queue', handleValue], ...instrumentation(resolve)]),
+    toVizModel: () => queue.toVizModel(),
+    version: get,
+  }
+}
+
+function toRedBlack(value: Value, ctx: NativeContext): RedBlack {
+  if (value === 'red' || value === 'black') return value
+  ctx.fail(
+    `A red-black node is 'red' or 'black', not ${stringify(value)}.`,
+    "Pass 'red' or 'black'.",
+  )
+}
+
+function redBlackRuntime(data: readonly Cell[]): Runtime {
+  const tree = new RedBlackTree(data)
+  const { mutating, get } = versioned()
+
+  const idOf = (value: Value, ctx: NativeContext, where: string): string => {
+    const id = tree.idOf(toCell(value, ctx, where))
+    if (id === undefined) {
+      ctx.fail(
+        `${where} refers to ${stringify(value)}, which is not in the tree.`,
+        'Only values the tree currently holds can be highlighted.',
+      )
+    }
+    return id
+  }
+
+  const handleValue = handle([
+    ['root', native('root', () => tree.rootValue())],
+    ['left', native('left', (args, ctx) => tree.leftOf(toCell(args[0], ctx, 'left')))],
+    ['right', native('right', (args, ctx) => tree.rightOf(toCell(args[0], ctx, 'right')))],
+    ['parent', native('parent', (args, ctx) => tree.parentOf(toCell(args[0], ctx, 'parent')))],
+    // A missing child is black, which is what the algorithm assumes about the
+    // leaves it never actually stores.
+    [
+      'color',
+      native('color', (args, ctx) =>
+        args[0] === null || args[0] === undefined
+          ? 'black'
+          : (tree.colorOf(toCell(args[0], ctx, 'color')) ?? 'black'),
+      ),
+    ],
+    ['has', native('has', (args, ctx) => tree.has(toCell(args[0], ctx, 'has')))],
+    ['size', native('size', () => tree.size)],
+    ['height', native('height', () => tree.height())],
+    ['inOrder', native('inOrder', () => tree.inOrder())],
+    [
+      'setRoot',
+      mutating('setRoot', (args, ctx) => void tree.setRoot(toCell(args[0], ctx, 'setRoot'))),
+    ],
+    [
+      'attachLeft',
+      mutating(
+        'attachLeft',
+        (args, ctx) =>
+          void tree.attachLeft(
+            toCell(args[0], ctx, 'attachLeft'),
+            toCell(args[1], ctx, 'attachLeft'),
+          ),
+      ),
+    ],
+    [
+      'attachRight',
+      mutating(
+        'attachRight',
+        (args, ctx) =>
+          void tree.attachRight(
+            toCell(args[0], ctx, 'attachRight'),
+            toCell(args[1], ctx, 'attachRight'),
+          ),
+      ),
+    ],
+    [
+      'rotateLeft',
+      mutating('rotateLeft', (args, ctx) => tree.rotateLeft(toCell(args[0], ctx, 'rotateLeft'))),
+    ],
+    [
+      'rotateRight',
+      mutating('rotateRight', (args, ctx) => tree.rotateRight(toCell(args[0], ctx, 'rotateRight'))),
+    ],
+  ])
+
+  return {
+    handleName: 'tree',
+    globals: new Map<string, Value>([
+      ['tree', handleValue],
+      ...instrumentation(idOf, (target, color, ctx) => {
+        tree.setColor(toCell(target, ctx, 'setColor'), toRedBlack(color, ctx))
+      }),
+    ]),
+    toVizModel: () => tree.toVizModel(),
+    version: get,
+  }
 }

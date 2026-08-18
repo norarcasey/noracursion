@@ -49,6 +49,39 @@ export default function App() {
         />
 
         <Noracursion
+          structure="red-black-tree"
+          operation="insert"
+          recursion={recursion}
+          title="Red-black tree: insert and repair"
+          initialData={[10, 5, 15, 3, 7, 13, 20]}
+          autoPlay
+          speedMs={320}
+          blurb="The colour is the mnemonic, so it is drawn literally — and paired with a dashed stroke and an R or B glyph, because a picture that depends on telling red from black is a picture some readers cannot read. The fixup is in the snippet: watch the recolouring, then the rotation."
+        />
+
+        <Noracursion
+          structure="stack"
+          operation="traverse"
+          recursion={recursion}
+          title="Reading a stack costs you the stack"
+          initialData={[4, 8, 15, 16]}
+          autoPlay
+          speedMs={260}
+          blurb="There is no way to look inside: you pop everything off and push it back. Turn recursion off and the holding array becomes explicit."
+        />
+
+        <Noracursion
+          structure="doubly-linked-list"
+          operation="traverse"
+          recursion={recursion}
+          title="There and back again"
+          initialData={[4, 8, 15]}
+          autoPlay
+          speedMs={260}
+          blurb="Two links per pair, drawn in their own lane. Recursion walks home for free by unwinding — which is exactly the trick a singly linked list uses to fake having prev pointers."
+        />
+
+        <Noracursion
           structure="array"
           operation="sort"
           sortAlgorithm="quick"

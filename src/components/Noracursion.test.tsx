@@ -157,11 +157,9 @@ describe('<Noracursion />', () => {
   })
 
   it('says plainly when a structure has no model behind it yet', () => {
-    render(<Noracursion structure="red-black-tree" operation="insert" />)
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Noracursion can’t draw a red-black tree yet.',
-    )
-    expect(screen.getByRole('status')).toHaveTextContent('array, linked list, binary search tree')
+    render(<Noracursion structure="trie" operation="insert" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Noracursion can’t draw a trie yet.')
+    expect(screen.getByRole('status')).toHaveTextContent('array, linked list')
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 

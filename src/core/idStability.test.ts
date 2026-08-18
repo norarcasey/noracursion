@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { ArrayStructure } from './arrayStructure'
 import { LinkedList } from './linkedList'
 import type { VizModel } from './model'
+import { DoublyLinkedList } from './doublyLinkedList'
+import { Queue } from './queue'
+import { RedBlackTree } from './redBlackTree'
+import { Stack } from './stack'
 import { BinarySearchTree } from './tree'
 
 /**
@@ -179,5 +183,72 @@ describe('determinism', () => {
     array.removeAt(0)
     array.push(2)
     expect(array.idAt(0)).not.toBe(first)
+  })
+})
+
+describe('red-black tree', () => {
+  it('keeps every id through the rotations a rebalance performs', () => {
+    // The marquee case §6.3 was written for. Inserting into a right-leaning run
+    // forces rotations, and none of them may recreate a node.
+    const tree = new RedBlackTree([10, 20, 30])
+    const before = labelsById(tree.toVizModel())
+
+    tree.insert(40)
+    tree.insert(50)
+
+    const after = labelsById(tree.toVizModel())
+    for (const [id, label] of before) {
+      expect(after.get(id)).toBe(label)
+    }
+    expect(after.size).toBe(before.size + 2)
+    expect(tree.inOrder()).toEqual([10, 20, 30, 40, 50])
+  })
+
+  it('rotates without recreating anything, and without disturbing the order', () => {
+    const tree = new RedBlackTree([10, 5, 20, 15, 25])
+    const before = labelsById(tree.toVizModel())
+    const rootValue = tree.rootValue()
+    if (rootValue === null) throw new Error('empty tree')
+
+    expect(tree.rotateLeft(rootValue)).toBe(true)
+
+    expect(labelsById(tree.toVizModel())).toEqual(before)
+    expect(tree.inOrder()).toEqual([5, 10, 15, 20, 25])
+  })
+
+  it('serializes a colour on every node, since the colour is the mnemonic', () => {
+    const model = new RedBlackTree([10, 20, 30, 40]).toVizModel()
+    expect(model.nodes.every((node) => node.color === 'red' || node.color === 'black')).toBe(true)
+    expect(model.nodes[0].color).toBe('black')
+  })
+})
+
+describe('stack, queue and doubly linked list', () => {
+  it('a stack keeps ids as it grows and shrinks', () => {
+    const stack = new Stack([1, 2])
+    const bottom = stack.idAt(0)
+    stack.push(3)
+    expect(stack.idAt(0)).toBe(bottom)
+    stack.pop()
+    expect(stack.idAt(0)).toBe(bottom)
+    expect(stack.toArray()).toEqual([1, 2])
+  })
+
+  it('a queue keeps the ids of what is still waiting', () => {
+    const queue = new Queue([1, 2, 3])
+    const second = queue.idAt(1)
+    expect(queue.dequeue()).toBe(1)
+    // What was second is now at the front, and it is the same node.
+    expect(queue.idAt(0)).toBe(second)
+  })
+
+  it('a doubly linked list keeps ids when a middle node is unlinked', () => {
+    const list = new DoublyLinkedList(['a', 'b', 'c'])
+    const first = list.idAt(0)
+    const last = list.idAt(2)
+    expect(list.removeAt(1)).toBe('b')
+    expect(list.idAt(0)).toBe(first)
+    expect(list.idAt(1)).toBe(last)
+    expect(list.toArrayReversed()).toEqual(['c', 'a'])
   })
 })

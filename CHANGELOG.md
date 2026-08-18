@@ -65,7 +65,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing else. Tree snippets work link by link — `tree.left(v)`,
   `tree.attachRight(p, v)` — so the comparison that decides where a value lands
   is in the code the reader can edit, not hidden behind `tree.insert(v)`.
-  (272 tests.)
+- **M7 (part 1) — red-black trees, stacks, queues, doubly linked lists.** The
+  red-black tree serializes literal red and black, and the renderer pairs each
+  with a dashed stroke and an `R`/`B` glyph so the picture never depends on
+  telling the colours apart. Its fixup — recolour, or rotate — is in the
+  snippet, in both recursive and iterative form. Rotations move nodes and never
+  rebuild them, which the id-stability suite now asserts on a real rebalance.
+  Stack and queue mark their working ends; the doubly linked list draws its
+  backward links in their own lane. (334 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

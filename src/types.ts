@@ -59,7 +59,15 @@ export type ColorMode = 'structure' | 'state' | 'none'
  * but not here is drawn as a "can't do this yet" notice rather than a blank
  * stage — see the note in CLAUDE.md §6.5 about unimplemented combinations.
  */
-export const DRAWABLE_STRUCTURES = ['array', 'linked-list', 'binary-search-tree'] as const
+export const DRAWABLE_STRUCTURES = [
+  'array',
+  'linked-list',
+  'doubly-linked-list',
+  'stack',
+  'queue',
+  'binary-search-tree',
+  'red-black-tree',
+] as const
 
 export type DrawableStructure = (typeof DRAWABLE_STRUCTURES)[number]
 
