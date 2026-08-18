@@ -4,7 +4,9 @@ import { LinkedList } from './linkedList'
 import { compare } from './model'
 import { AvlTree } from './avlTree'
 import { DoublyLinkedList } from './doublyLinkedList'
+import { Graph } from './graph'
 import { BinaryHeap } from './heap'
+import { Trie } from './trie'
 import { Queue } from './queue'
 import { RedBlackTree } from './redBlackTree'
 import { Stack } from './stack'
@@ -410,5 +412,94 @@ describe('AvlTree', () => {
     expect(root?.meta?.mark).toBe('+1')
     const leaf = model.nodes.find((node) => node.label === '3')
     expect(leaf?.meta?.mark).toBeUndefined()
+  })
+})
+
+describe('Trie', () => {
+  it('shares the nodes of a shared prefix', () => {
+    const trie = new Trie(['car', 'cart', 'cat'])
+    // root, c, ca, car, cart, cat. Stored separately these three words would
+    // need eleven nodes; six is the shared prefix doing its job.
+    expect(trie.size).toBe(6)
+    expect(trie.wordCount).toBe(3)
+    expect(trie.childOf('', 'c')).toBe('c')
+    expect(trie.lettersAt('ca').sort()).toEqual(['r', 't'])
+  })
+
+  it('separates a word from a path that merely exists', () => {
+    const trie = new Trie(['cart'])
+    expect(trie.startsWith('car')).toBe(true)
+    // The shape of the tree cannot tell these apart; the flag can.
+    expect(trie.has('car')).toBe(false)
+    expect(trie.has('cart')).toBe(true)
+  })
+
+  it('lists its words in alphabetical order', () => {
+    expect(new Trie(['dog', 'car', 'do', 'cart']).words()).toEqual(['car', 'cart', 'do', 'dog'])
+  })
+
+  it('puts the letter on the edge, where it means something', () => {
+    const model = new Trie(['ab']).toVizModel()
+    expect(model.edges.map((edge) => edge.label)).toEqual(['a', 'b'])
+    expect(model.nodes.map((node) => node.label)).toEqual(['·', 'a', 'b'])
+    expect(model.nodes[2].meta?.mark).toBe('✓')
+  })
+
+  it('refuses a multi-character edge and an unknown node', () => {
+    const trie = new Trie(['a'])
+    expect(() => trie.addChild('', 'xy')).toThrow(/one letter/)
+    expect(() => trie.addChild('zzz', 'a')).toThrow(/no node/)
+  })
+})
+
+describe('Graph', () => {
+  const seeds = [
+    {
+      label: 'A',
+      x: 0,
+      y: 0,
+      edges: [
+        { to: 'B', weight: 4 },
+        { to: 'C', weight: 2 },
+      ],
+    },
+    { label: 'B', x: 100, y: -50, edges: [{ to: 'C', weight: 1 }] },
+    { label: 'C', x: 100, y: 50 },
+  ]
+
+  it('joins nodes both ways and remembers the weights', () => {
+    const graph = new Graph(seeds)
+    expect(graph.size).toBe(3)
+    expect(graph.neighbors('A')).toEqual(['B', 'C'])
+    // Undirected: C knows about A even though only A declared the edge.
+    expect(graph.neighbors('C')).toEqual(['A', 'B'])
+    expect(graph.weight('A', 'B')).toBe(4)
+    expect(graph.weight('B', 'A')).toBe(4)
+    expect(graph.weight('A', 'A')).toBeNull()
+  })
+
+  it('keeps the coordinates it was given', () => {
+    const model = new Graph(seeds).toVizModel()
+    expect(model.layoutHint).toBe('graph')
+    expect(model.nodes.map((node) => [node.meta?.x, node.meta?.y])).toEqual([
+      [0, 0],
+      [100, -50],
+      [100, 50],
+    ])
+  })
+
+  it('arranges plain values in a ring rather than refusing them', () => {
+    // Deterministic: the positions depend only on the count and the order, so
+    // this is as stable as author coordinates (§3.5).
+    const first = new Graph([1, 2, 3]).toVizModel()
+    const second = new Graph([1, 2, 3]).toVizModel()
+    expect(first).toEqual(second)
+    expect(first.nodes).toHaveLength(3)
+    expect(first.edges).toHaveLength(3)
+  })
+
+  it('refuses to join a node that is not there', () => {
+    const graph = new Graph(seeds)
+    expect(() => graph.connect('A', 'Z')).toThrow(/not in the graph/)
   })
 })

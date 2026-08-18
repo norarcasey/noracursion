@@ -10,7 +10,9 @@ import { Stack } from '../core/stack'
 import { BinarySearchTree } from '../core/tree'
 import type { NativeContext, NativeFunction, Value, ValueObject } from '../interpreter/values'
 import { stringify, typeName } from '../interpreter/values'
-import type { DrawableStructure } from '../types'
+import { Graph } from '../core/graph'
+import { Trie, TRIE_ROOT } from '../core/trie'
+import { isNodeSeed, type DrawableStructure, type SeedData } from '../types'
 
 /**
  * The runtime injected into interpreted code (CLAUDE.md §3.4).
@@ -73,28 +75,43 @@ function toColor(value: Value, ctx: NativeContext): NodeColor {
   ctx.fail(`setColor needs a colour name, but got ${typeName(value)}.`, "Pass 'red' or 'black'.")
 }
 
-export function createRuntime(structure: DrawableStructure, data: readonly Cell[]): Runtime {
+/**
+ * Plain values only. A graph is the one structure whose data carries
+ * coordinates; everything else wants a flat list, and a `NodeSeed` handed to a
+ * heap is a mistake worth dropping rather than coercing into a shape.
+ */
+function asCells(data: SeedData): readonly Cell[] {
+  const cells: Cell[] = []
+  for (const value of data) if (!isNodeSeed(value)) cells.push(value)
+  return cells
+}
+
+export function createRuntime(structure: DrawableStructure, data: SeedData): Runtime {
   switch (structure) {
     case 'array':
-      return arrayRuntime(data)
+      return arrayRuntime(asCells(data))
     case 'linked-list':
-      return listRuntime(data)
+      return listRuntime(asCells(data))
     case 'doubly-linked-list':
-      return doublyLinkedRuntime(data)
+      return doublyLinkedRuntime(asCells(data))
     case 'stack':
-      return stackRuntime(data)
+      return stackRuntime(asCells(data))
     case 'queue':
-      return queueRuntime(data)
+      return queueRuntime(asCells(data))
     case 'binary-search-tree':
-      return treeRuntime(data)
+      return treeRuntime(asCells(data))
     case 'red-black-tree':
-      return redBlackRuntime(data)
+      return redBlackRuntime(asCells(data))
     case 'avl-tree':
-      return avlRuntime(data)
+      return avlRuntime(asCells(data))
     case 'min-heap':
-      return heapRuntime(data, 'min')
+      return heapRuntime(asCells(data), 'min')
     case 'max-heap':
-      return heapRuntime(data, 'max')
+      return heapRuntime(asCells(data), 'max')
+    case 'trie':
+      return trieRuntime(asCells(data))
+    case 'graph':
+      return graphRuntime(data)
   }
 }
 
@@ -805,6 +822,134 @@ function avlRuntime(data: readonly Cell[]): Runtime {
     handleName: 'tree',
     globals: new Map<string, Value>([['tree', handleValue], ...instrumentation(idOf)]),
     toVizModel: () => tree.toVizModel(),
+    version: get,
+  }
+}
+
+function toLetter(value: Value, ctx: NativeContext, where: string): string {
+  if (typeof value === 'string' && value.length === 1) return value
+  ctx.fail(
+    `${where} needs a single letter, but got ${stringify(value)}.`,
+    'A trie edge carries exactly one character.',
+  )
+}
+
+function toPrefix(value: Value, ctx: NativeContext, where: string): string {
+  if (typeof value === 'string') return value
+  ctx.fail(
+    `${where} needs a prefix string, but got ${typeName(value)}.`,
+    "Trie nodes are addressed by the path to them — the root is ''.",
+  )
+}
+
+function trieRuntime(data: readonly Cell[]): Runtime {
+  const trie = new Trie(data)
+  const { mutating, get } = versioned()
+
+  const resolve = (target: Value, ctx: NativeContext, where: string): string => {
+    const prefix = toPrefix(target, ctx, where)
+    const id = trie.idOf(prefix)
+    if (id === undefined) {
+      ctx.fail(
+        `${where} refers to "${prefix}", which is not a path in this trie.`,
+        "Nodes are named by the letters leading to them; the root is ''.",
+      )
+    }
+    return id
+  }
+
+  const handleValue = handle([
+    // The root's address is the empty string, which is also the prefix it
+    // spells — the addressing scheme and the structure are the same idea.
+    ['root', native('root', () => TRIE_ROOT)],
+    [
+      'child',
+      native('child', (args, ctx) =>
+        trie.childOf(toPrefix(args[0], ctx, 'child'), toLetter(args[1], ctx, 'child')),
+      ),
+    ],
+    [
+      'letters',
+      native('letters', (args, ctx) => trie.lettersAt(toPrefix(args[0], ctx, 'letters'))),
+    ],
+    ['isWord', native('isWord', (args, ctx) => trie.isTerminal(toPrefix(args[0], ctx, 'isWord')))],
+    ['has', native('has', (args, ctx) => trie.has(toPrefix(args[0], ctx, 'has')))],
+    [
+      'startsWith',
+      native('startsWith', (args, ctx) => trie.startsWith(toPrefix(args[0], ctx, 'startsWith'))),
+    ],
+    ['words', native('words', () => trie.words())],
+    ['size', native('size', () => trie.size)],
+    [
+      'addChild',
+      mutating('addChild', (args, ctx) =>
+        trie.addChild(toPrefix(args[0], ctx, 'addChild'), toLetter(args[1], ctx, 'addChild')),
+      ),
+    ],
+    [
+      'markWord',
+      mutating(
+        'markWord',
+        (args, ctx) => void trie.setTerminal(toPrefix(args[0], ctx, 'markWord'), true),
+      ),
+    ],
+  ])
+
+  return {
+    handleName: 'trie',
+    globals: new Map<string, Value>([['trie', handleValue], ...instrumentation(resolve)]),
+    toVizModel: () => trie.toVizModel(),
+    version: get,
+  }
+}
+
+function graphRuntime(data: SeedData): Runtime {
+  const graph = new Graph(data)
+  const { mutating, get } = versioned()
+
+  const resolve = (target: Value, ctx: NativeContext, where: string): string => {
+    const id = graph.idOf(toCell(target, ctx, where))
+    if (id === undefined) {
+      ctx.fail(
+        `${where} refers to ${stringify(target)}, which is not in the graph.`,
+        'Nodes are named by their labels.',
+      )
+    }
+    return id
+  }
+
+  const handleValue = handle([
+    ['nodes', native('nodes', () => graph.labels())],
+    ['size', native('size', () => graph.size)],
+    ['has', native('has', (args, ctx) => graph.has(toCell(args[0], ctx, 'has')))],
+    [
+      'neighbors',
+      native('neighbors', (args, ctx) => graph.neighbors(toCell(args[0], ctx, 'neighbors'))),
+    ],
+    [
+      'weight',
+      native('weight', (args, ctx) =>
+        graph.weight(toCell(args[0], ctx, 'weight'), toCell(args[1], ctx, 'weight')),
+      ),
+    ],
+    [
+      'connect',
+      mutating('connect', (args, ctx) => {
+        const weight = args[2]
+        graph.connect(
+          toCell(args[0], ctx, 'connect'),
+          toCell(args[1], ctx, 'connect'),
+          typeof weight === 'number' ? weight : 1,
+        )
+        return undefined
+      }),
+    ],
+  ])
+
+  return {
+    handleName: 'graph',
+    globals: new Map<string, Value>([['graph', handleValue], ...instrumentation(resolve)]),
+    toVizModel: () => graph.toVizModel(),
     version: get,
   }
 }

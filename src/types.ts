@@ -40,6 +40,32 @@ export type SortAlgorithm = 'bubble' | 'insertion' | 'selection' | 'merge' | 'qu
  */
 export type Language = 'typescript' | 'javascript' | 'python' | 'java' | 'go'
 
+/**
+ * A graph node, with the coordinates the author places it at.
+ *
+ * CLAUDE.md §2 lists `NodeSeed` in `initialData` but never defines it; this is
+ * that definition. §3.5 makes v1 graphs author-positioned — a deterministic
+ * force layout can come later — so `x` and `y` are required rather than
+ * optional, because a graph whose positions are guessed is a graph that jitters
+ * between renders, which §3.5 rules out.
+ *
+ * Edges name their target by label, which works because a graph's labels are
+ * its identities.
+ */
+export interface NodeSeed {
+  readonly label: number | string
+  readonly x: number
+  readonly y: number
+  readonly edges?: ReadonlyArray<{ readonly to: number | string; readonly weight?: number }>
+}
+
+/** What `initialData` may hold: plain values, or positioned graph nodes. */
+export type SeedData = ReadonlyArray<number | string> | readonly NodeSeed[]
+
+export function isNodeSeed(value: number | string | NodeSeed): value is NodeSeed {
+  return typeof value === 'object' && value !== null
+}
+
 /** What each node shows inside its circle. */
 export type LabelMode = 'value' | 'index' | 'none'
 
@@ -55,24 +81,12 @@ export type LabelMode = 'value' | 'index' | 'none'
 export type ColorMode = 'structure' | 'state' | 'none'
 
 /**
- * The structures that have a model behind them today. Anything in `Structure`
- * but not here is drawn as a "can't do this yet" notice rather than a blank
- * stage — see the note in CLAUDE.md §6.5 about unimplemented combinations.
+ * Every `Structure` now has a model behind it, so this is an alias rather than
+ * a subset. It stays as a distinct name because `core/`, `bridge/` and the run
+ * hook all talk about "a structure something can be built from", and that is
+ * worth being able to say even when the answer is currently "all of them".
  */
-export const DRAWABLE_STRUCTURES = [
-  'array',
-  'linked-list',
-  'doubly-linked-list',
-  'stack',
-  'queue',
-  'binary-search-tree',
-  'red-black-tree',
-  'avl-tree',
-  'min-heap',
-  'max-heap',
-] as const
-
-export type DrawableStructure = (typeof DRAWABLE_STRUCTURES)[number]
+export type DrawableStructure = Structure
 
 /**
  * How each structure is written in prose.

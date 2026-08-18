@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ArrayStructure } from '../core/arrayStructure'
+import { Graph } from '../core/graph'
 import { LinkedList } from '../core/linkedList'
 import type { VizModel } from '../core/model'
 import { BinarySearchTree } from '../core/tree'
@@ -228,5 +229,38 @@ describe('tidyTree', () => {
     })
     expect(layout.nodes.length).toBeGreaterThan(0)
     expect(everyNumberFinite(layout)).toBe(true)
+  })
+})
+
+describe('graph layout', () => {
+  const model = new Graph([
+    { label: 'A', x: 0, y: 0, edges: [{ to: 'B', weight: 4 }] },
+    { label: 'B', x: 120, y: 60 },
+  ]).toVizModel()
+
+  it('uses the coordinates the author supplied, framed', () => {
+    const layout = layoutModel(model)
+    // The offset between the two nodes is preserved exactly; only the frame moves.
+    expect(layout.nodes[1].x - layout.nodes[0].x).toBeCloseTo(120)
+    expect(layout.nodes[1].y - layout.nodes[0].y).toBeCloseTo(60)
+    expect(everyNumberFinite(layout)).toBe(true)
+  })
+
+  it('computes nothing, so it cannot jitter', () => {
+    expect(layoutModel(model)).toEqual(layoutModel(model))
+  })
+
+  it('carries the weight through for the renderer to draw', () => {
+    expect(layoutModel(model).edges[0].label).toBe('4')
+  })
+
+  it('places a node with no coordinates visibly wrong rather than subtly wrong', () => {
+    const layout = layoutModel({
+      nodes: [{ id: 'a', label: 'a' }],
+      edges: [],
+      layoutHint: 'graph',
+    })
+    expect(everyNumberFinite(layout)).toBe(true)
+    expect(layout.nodes).toHaveLength(1)
   })
 })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildRun, type Run } from '../bridge'
 import type { VizEvent } from '../bridge/events'
 import type { Cell, VizModel } from '../core/model'
-import type { DrawableStructure } from '../types'
+import type { DrawableStructure, NodeSeed, SeedData } from '../types'
 import { getSnippet, hasSnippet, snippetKey, snippetVariants } from './index'
 
 /**
@@ -15,6 +15,37 @@ import { getSnippet, hasSnippet, snippetKey, snippetVariants } from './index'
  */
 
 const DATA: readonly Cell[] = [8, 3, 10, 1, 6, 14]
+const WORDS: readonly Cell[] = ['car', 'cart', 'cat', 'dog', 'do']
+const GRAPH: readonly NodeSeed[] = [
+  {
+    label: 'A',
+    x: 0,
+    y: 0,
+    edges: [
+      { to: 'B', weight: 4 },
+      { to: 'C', weight: 2 },
+    ],
+  },
+  { label: 'B', x: 140, y: -70, edges: [{ to: 'D', weight: 5 }] },
+  {
+    label: 'C',
+    x: 140,
+    y: 70,
+    edges: [
+      { to: 'B', weight: 1 },
+      { to: 'D', weight: 8 },
+    ],
+  },
+  { label: 'D', x: 280, y: 0, edges: [{ to: 'E', weight: 3 }] },
+  { label: 'E', x: 420, y: 0 },
+]
+
+/** Each structure gets data it can actually be built from. */
+function dataFor(structure: string): SeedData {
+  if (structure === 'trie') return WORDS
+  if (structure === 'graph') return GRAPH
+  return DATA
+}
 
 const STRUCTURE_FOR: Readonly<Record<string, DrawableStructure>> = {
   array: 'array',
@@ -27,12 +58,18 @@ const STRUCTURE_FOR: Readonly<Record<string, DrawableStructure>> = {
   'avl-tree': 'avl-tree',
   'min-heap': 'min-heap',
   'max-heap': 'max-heap',
+  trie: 'trie',
+  graph: 'graph',
 }
 
 function runVariant(variant: ReturnType<typeof snippetVariants>[number], recursion: boolean): Run {
   const code = getSnippet({ ...variant, recursion })
   if (code === null) throw new Error(`no snippet for ${snippetKey({ ...variant, recursion })}`)
-  return buildRun({ code, structure: STRUCTURE_FOR[variant.structure], data: DATA })
+  return buildRun({
+    code,
+    structure: STRUCTURE_FOR[variant.structure],
+    data: dataFor(variant.structure),
+  })
 }
 
 function labels(model: VizModel): string[] {
@@ -90,7 +127,7 @@ describe('every snippet runs', () => {
       expect(hasSnippet({ ...variant, recursion: true })).toBe(true)
       expect(hasSnippet({ ...variant, recursion: false })).toBe(true)
     }
-    expect(VARIANTS.length).toBeGreaterThanOrEqual(39)
+    expect(VARIANTS.length).toBeGreaterThanOrEqual(45)
   })
 })
 
@@ -190,9 +227,10 @@ describe('the registry is the source of truth', () => {
   it('reports nothing for a combination it does not implement', () => {
     // §6.5: an unimplemented combination must not be silently broken. The
     // component turns this into a plain notice naming what does work.
-    expect(hasSnippet({ structure: 'trie', operation: 'insert' })).toBe(false)
+    expect(hasSnippet({ structure: 'stack', operation: 'sort' })).toBe(false)
     expect(hasSnippet({ structure: 'array', operation: 'balance' })).toBe(false)
     expect(hasSnippet({ structure: 'binary-search-tree', operation: 'sort' })).toBe(false)
+    expect(hasSnippet({ structure: 'array', operation: 'shortest-path' })).toBe(false)
   })
 
   it('reports nothing for a language it cannot run', () => {
@@ -358,5 +396,66 @@ describe('AVL tree', () => {
   it('searches like any other search tree', () => {
     const run = runVariant({ structure: 'avl-tree', operation: 'search' }, true)
     expect(run.summary.logs).toEqual(['found 6'])
+  })
+})
+
+describe('trie', () => {
+  it('shares the nodes of a prefix rather than storing it twice', () => {
+    const run = runVariant({ structure: 'trie', operation: 'insert' }, true)
+    expect(run.error).toBeNull()
+    // 'cap' reuses the c and the a already there, and adds only the p.
+    const created = eventScript(run).filter((entry) => entry.endsWith(' new'))
+    expect(created).toHaveLength(1)
+    expect(run.summary.logs).toEqual(['added cap'])
+  })
+
+  it('distinguishes a word from a path that merely exists', () => {
+    // 'ca' is a real path through this trie, and is not a word. That is the
+    // distinction `markWord` exists to record.
+    expect(runVariant({ structure: 'trie', operation: 'search' }, true).summary.logs).toEqual([
+      '"cat" is in the trie',
+    ])
+  })
+
+  it('lists every word, in alphabetical order, for free', () => {
+    for (const recursion of [true, false]) {
+      const run = runVariant({ structure: 'trie', operation: 'traverse' }, recursion)
+      expect(run.summary.logs).toEqual(['car', 'cart', 'cat', 'do', 'dog'])
+    }
+  })
+})
+
+describe('graph', () => {
+  it('walks breadth-first: everything one step away before anything two away', () => {
+    const run = runVariant({ structure: 'graph', operation: 'traverse' }, true)
+    expect(run.summary.logs).toEqual(['A', 'B', 'C', 'D', 'E'])
+  })
+
+  it('walks depth-first: one branch as far as it goes', () => {
+    const run = runVariant({ structure: 'graph', operation: 'search' }, true)
+    expect(run.summary.logs).toEqual(['reached E'])
+    // B before C, and down through D — a queue would have taken C second.
+    const visited = eventScript(run).filter((entry) => entry.startsWith('visit'))
+    expect(visited.length).toBeGreaterThan(2)
+  })
+
+  it('finds the cheapest route, not the shortest hop count', () => {
+    for (const recursion of [true, false]) {
+      const run = runVariant({ structure: 'graph', operation: 'shortest-path' }, recursion)
+      expect(run.error).toBeNull()
+      // A→C→B is 3, cheaper than the direct A→B edge of 4 — which is the whole
+      // point of Dijkstra over breadth-first search.
+      expect(run.summary.logs).toEqual(['A = 0', 'C = 2', 'B = 3', 'D = 8', 'E = 11'])
+    }
+  })
+
+  it('draws the weights, and places nodes where the author put them', () => {
+    const run = runVariant({ structure: 'graph', operation: 'traverse' }, true)
+    const model = finalModel(run)
+    expect(model.layoutHint).toBe('graph')
+    expect(model.nodes[0].meta?.x).toBe(0)
+    expect(model.edges.some((edge) => edge.label === '4')).toBe(true)
+    // A unit weight is the absence of weighting; labelling it is noise.
+    expect(model.edges.every((edge) => edge.label !== '1')).toBe(true)
   })
 })

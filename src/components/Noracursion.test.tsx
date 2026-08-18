@@ -156,11 +156,25 @@ describe('<Noracursion />', () => {
     expect(container.querySelectorAll('.nrc__node')).toHaveLength(2)
   })
 
-  it('says plainly when a structure has no model behind it yet', () => {
-    render(<Noracursion structure="trie" operation="insert" />)
-    expect(screen.getByRole('status')).toHaveTextContent('Noracursion can’t draw a trie yet.')
-    expect(screen.getByRole('status')).toHaveTextContent('array, linked list')
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  it('draws every structure in the union — there is no "not yet" left', () => {
+    for (const structure of [
+      'array',
+      'linked-list',
+      'doubly-linked-list',
+      'stack',
+      'queue',
+      'binary-search-tree',
+      'red-black-tree',
+      'avl-tree',
+      'min-heap',
+      'max-heap',
+      'trie',
+      'graph',
+    ] as const) {
+      const { unmount } = render(<Noracursion structure={structure} operation="traverse" />)
+      expect(screen.getByRole('img')).toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('describes the picture for a screen reader', () => {

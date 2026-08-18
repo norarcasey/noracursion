@@ -273,6 +273,23 @@ export function createGlobals(onLog: (text: string) => void): Map<string, Value>
 
   return new Map<string, Value>([
     ['Math', math],
+    // Conversions and the numeric edge cases. `Infinity` in particular is what
+    // "no route yet" looks like in a shortest-path algorithm, so a subset
+    // without it cannot express one.
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['NaN', Number.NaN],
+    ['String', native('String', (args) => (args.length === 0 ? '' : stringify(args[0])))],
+    [
+      'Number',
+      native('Number', (args) => {
+        const value = args[0]
+        if (typeof value === 'number') return value
+        if (typeof value === 'string') return Number(value)
+        if (typeof value === 'boolean') return value ? 1 : 0
+        return Number.NaN
+      }),
+    ],
+    ['Boolean', native('Boolean', (args) => truthyEnough(args.length === 0 ? undefined : args[0]))],
     ['console', makeObject([['log', log]])],
     // §3.4 lists a bare `log(...)` in the injected runtime. It is the same
     // function as `console.log`, so both feed the one output pane rather than

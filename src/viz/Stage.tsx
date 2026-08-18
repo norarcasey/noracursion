@@ -131,6 +131,25 @@ function Edge({ edge, transition }: { edge: LayoutEdge; transition: string }) {
           vectorEffect="non-scaling-stroke"
         />
       </g>
+      {edge.label !== undefined && edge.length > 0 && (
+        // Weights ride at the midpoint, upright: a rotated number is a number
+        // nobody reads.
+        <g
+          style={{
+            transition,
+            transform: `translate(${(edge.x1 + edge.x2) / 2}px, ${(edge.y1 + edge.y2) / 2}px)`,
+          }}
+        >
+          <text
+            className="nrc__edge-label"
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={edgeLabelStyle}
+          >
+            {edge.label}
+          </text>
+        </g>
+      )}
       {edge.kind !== undefined && DIRECTED.has(edge.kind) && (
         <g
           style={{
@@ -289,6 +308,17 @@ const markStyle: CSSProperties = {
   fontWeight: 700,
   letterSpacing: '0.04em',
   fill: 'var(--nrc-state-visiting, #ffd166)',
+  userSelect: 'none',
+}
+
+const edgeLabelStyle: CSSProperties = {
+  fontFamily: 'var(--nrc-mono, ui-monospace, Menlo, Monaco, Consolas, monospace)',
+  fontSize: '10px',
+  fontWeight: 600,
+  fill: 'var(--nrc-muted, #9fb0e8)',
+  paintOrder: 'stroke',
+  stroke: 'var(--nrc-stage, #0b1020)',
+  strokeWidth: 3,
   userSelect: 'none',
 }
 

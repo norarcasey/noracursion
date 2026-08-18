@@ -14,14 +14,14 @@ import type { NoracursionError } from '../interpreter/errors'
 import type { RunSummary, StepInfo } from '../interpreter/values'
 import { layoutModel } from '../layout'
 import {
-  DRAWABLE_STRUCTURES,
   STRUCTURE_LABELS,
+  type NodeSeed,
   type ColorMode,
-  type DrawableStructure,
   type LabelMode,
   type Language,
   type Operation,
   type SortAlgorithm,
+  type SeedData,
   type Structure,
   type TraversalOrder,
 } from '../types'
@@ -48,8 +48,11 @@ export interface NoracursionProps {
   /* --- what to show --- */
   structure: Structure
   operation: Operation
-  /** Values to build the structure from. Defaults to a small sample set. */
-  initialData?: ReadonlyArray<number | string>
+  /**
+   * Values to build the structure from. Defaults to a small sample set chosen
+   * for the structure — words for a trie, positioned nodes for a graph.
+   */
+  initialData?: SeedData
   /** Only meaningful for `traverse`. Default `'in-order'`. */
   traversalOrder?: TraversalOrder
   /** Only meaningful for `sort`. Default `'bubble'`. */
@@ -116,15 +119,40 @@ type TransportAction = 'toggle' | 'play' | 'forward' | 'back' | 'reset'
 
 /**
  * Used when the consumer supplies no data, so the component draws something
- * meaningful out of the box. Chosen to make a legibly unbalanced binary search
- * tree while still reading sensibly as an array or a list.
+ * meaningful out of the box. The numbers make a legibly unbalanced search tree
+ * while still reading sensibly as an array or a list; a trie needs words, and a
+ * graph needs nodes that already know where they are (§3.5).
  */
 const DEFAULT_DATA: readonly Cell[] = [8, 3, 10, 1, 6, 14]
-const EMPTY_DATA: readonly Cell[] = []
+const DEFAULT_WORDS: readonly Cell[] = ['car', 'cart', 'cat', 'dog', 'do']
+const DEFAULT_GRAPH: readonly NodeSeed[] = [
+  {
+    label: 'A',
+    x: 0,
+    y: 0,
+    edges: [
+      { to: 'B', weight: 4 },
+      { to: 'C', weight: 2 },
+    ],
+  },
+  { label: 'B', x: 140, y: -70, edges: [{ to: 'D', weight: 5 }] },
+  {
+    label: 'C',
+    x: 140,
+    y: 70,
+    edges: [
+      { to: 'B', weight: 1 },
+      { to: 'D', weight: 8 },
+    ],
+  },
+  { label: 'D', x: 280, y: 0, edges: [{ to: 'E', weight: 3 }] },
+  { label: 'E', x: 420, y: 0 },
+]
 
-function isDrawable(structure: Structure): structure is DrawableStructure {
-  const drawable: readonly string[] = DRAWABLE_STRUCTURES
-  return drawable.includes(structure)
+function defaultDataFor(structure: Structure): SeedData {
+  if (structure === 'trie') return DEFAULT_WORDS
+  if (structure === 'graph') return DEFAULT_GRAPH
+  return DEFAULT_DATA
 }
 
 /**
@@ -163,15 +191,13 @@ export function Noracursion({
   onComplete,
   onRuntimeError,
 }: NoracursionProps) {
-  const provided = initialData ?? DEFAULT_DATA
+  const provided = initialData ?? defaultDataFor(structure)
   // Keyed on the contents, not the array's identity: `initialData={[1, 2]}` is
   // a fresh array on every render, and using it as a dependency directly would
   // rebuild the whole run each time the parent re-rendered.
   const dataKey = JSON.stringify(provided)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- see dataKey above
-  const data = useMemo<readonly Cell[]>(() => provided, [dataKey])
-
-  const drawable = isDrawable(structure)
+  const data = useMemo<SeedData>(() => provided, [dataKey])
 
   // A prop that changes the program reselects the snippet (§2). `useEditableCode`
   // is what keeps that from throwing away edits: it offers the new source rather
@@ -183,7 +209,7 @@ export function Noracursion({
   const program = code ?? builtIn
 
   // Only TypeScript executes; the rest are shown for comparison (§4).
-  const runnable = drawable && language === 'typescript' && program !== null
+  const runnable = language === 'typescript' && program !== null
 
   const source = useEditableCode(program ?? '')
   const [speed, setSpeed] = useState(speedMs)
@@ -191,10 +217,8 @@ export function Noracursion({
 
   const run = useRun({
     code: runnable ? source.committed : null,
-    // A structure with no model yet still needs a stable hook call, so it runs
-    // an empty program against an array that is never drawn.
-    structure: drawable ? structure : 'array',
-    data: drawable ? data : EMPTY_DATA,
+    structure,
+    data,
     autoPlay: autoPlay && runnable,
     speedMs: speed,
     stepBudget,
@@ -288,20 +312,16 @@ export function Noracursion({
         </div>
       )}
 
-      {drawable && program === null && <NoExample structure={structure} operation={operation} />}
+      {program === null && <NoExample structure={structure} operation={operation} />}
 
-      {drawable ? (
-        <Stage
-          layout={layout}
-          labelMode={labelMode}
-          colorMode={colorMode}
-          speedMs={speed}
-          showIndexLabels={model.indexLabels === true}
-          ariaLabel={describe(structure, model)}
-        />
-      ) : (
-        <NotYetDrawable structure={structure} />
-      )}
+      <Stage
+        layout={layout}
+        labelMode={labelMode}
+        colorMode={colorMode}
+        speedMs={speed}
+        showIndexLabels={model.indexLabels === true}
+        ariaLabel={describe(structure, model)}
+      />
 
       {showLegend && <Legend />}
 
@@ -453,29 +473,6 @@ function useReportedRun({
   useEffect(() => {
     if (error !== null) handlers.current.onRuntimeError?.(error)
   }, [error])
-}
-
-/**
- * Says plainly what is missing, in the same voice as the interpreter's errors.
- * A blank stage would leave the reader guessing whether they had passed bad
- * data or hit a gap in the library.
- */
-function NotYetDrawable({ structure }: { structure: Structure }) {
-  return (
-    <div className="nrc__notice" role="status" style={noticeStyle}>
-      <strong>Noracursion can’t draw a {STRUCTURE_LABELS[structure]} yet.</strong>{' '}
-      {`The structures it draws today are: ${listDrawable()}.`}
-    </div>
-  )
-}
-
-/**
- * Derived from the list itself, so the copy cannot drift from what works.
- * Rendered as a plain comma list after a colon, which avoids having to
- * pluralize or article every structure name ("an array", "a red-black tree").
- */
-function listDrawable(): string {
-  return DRAWABLE_STRUCTURES.map((s) => STRUCTURE_LABELS[s]).join(', ')
 }
 
 /** A description of the picture for readers who cannot see it. */

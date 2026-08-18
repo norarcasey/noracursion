@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { buildRun, type Frame, type Run } from '../bridge'
-import type { Cell } from '../core/model'
 import type { NoracursionError } from '../interpreter/errors'
 import type { RunSummary } from '../interpreter/values'
-import type { DrawableStructure } from '../types'
+import type { DrawableStructure, SeedData } from '../types'
 
 export interface UseRunOptions {
   /** The program to run. `null` means "just draw the structure". */
   readonly code: string | null
   readonly structure: DrawableStructure
-  readonly data: readonly Cell[]
+  readonly data: SeedData
   readonly autoPlay?: boolean
   /** Milliseconds between steps while playing. */
   readonly speedMs?: number

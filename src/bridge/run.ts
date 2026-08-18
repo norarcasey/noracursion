@@ -1,9 +1,9 @@
-import type { Cell, VizModel } from '../core/model'
+import type { VizModel } from '../core/model'
 import type { NoracursionError } from '../interpreter/errors'
 import { NoracursionError as RuntimeError } from '../interpreter/errors'
 import { interpret, type RunOptions } from '../interpreter/interpret'
 import type { RunSummary, Step } from '../interpreter/values'
-import type { DrawableStructure } from '../types'
+import type { DrawableStructure, SeedData } from '../types'
 import type { VizEvent } from './events'
 import { Overlay } from './overlay'
 import { createRuntime } from './runtime'
@@ -24,7 +24,7 @@ export interface Frame {
 export interface BuildRunOptions extends RunOptions {
   readonly code: string
   readonly structure: DrawableStructure
-  readonly data: readonly Cell[]
+  readonly data: SeedData
 }
 
 export interface Run {

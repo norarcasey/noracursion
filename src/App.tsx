@@ -127,6 +127,26 @@ export default function App() {
         />
 
         <Noracursion
+          structure="graph"
+          operation="shortest-path"
+          recursion={recursion}
+          title="Dijkstra: cheapest, not fewest"
+          autoPlay
+          speedMs={300}
+          blurb="A→C→B costs 3, while the direct A→B edge costs 4 — so the two-hop route wins. Positions come from the data; §3.5 keeps v1 graphs author-placed so nothing jitters."
+        />
+
+        <Noracursion
+          structure="trie"
+          operation="insert"
+          recursion={recursion}
+          title="A trie shares its prefixes"
+          autoPlay
+          speedMs={300}
+          blurb="Adding 'cap' reuses the c and the a already there and adds one node. The tick marks where a word ends — the shape alone cannot tell 'car' from the 'car' inside 'cart'."
+        />
+
+        <Noracursion
           structure="linked-list"
           operation="traverse"
           title="A loop that never ends"

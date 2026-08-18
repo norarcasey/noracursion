@@ -79,7 +79,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   deliberately leave the heap property broken, because restoring it is the
   algorithm and the algorithm belongs in the snippet. AVL nodes wear their
   balance factor, and measure their heights rather than caching them. Both
-  hold their invariants across 200 fixed-seed random trees. (372 tests.)
+  hold their invariants across 200 fixed-seed random trees.
+- **M7 (part 3) — tries and graphs.** Every structure in `Structure` now draws,
+  so there is no "can't do this yet" branch left. Trie nodes are addressed by
+  the path to them, because a trie holding "cat" and "car" has two nodes
+  labelled `a`; the letter rides on the edge, and a tick marks where a word
+  ends. Graphs are author-positioned per §3.5, carry weights on their edges, and
+  fall back to a deterministic ring when given plain values. `NodeSeed` — named
+  but never defined in §2 — is now a real type. Dijkstra, BFS and DFS ship as
+  snippets. (410 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

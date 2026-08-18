@@ -60,6 +60,22 @@ import {
   MIN_HEAP_INSERT_REC,
 } from './heap'
 import {
+  TRIE_INSERT_ITER,
+  TRIE_INSERT_REC,
+  TRIE_SEARCH_ITER,
+  TRIE_SEARCH_REC,
+  TRIE_TRAVERSE_ITER,
+  TRIE_TRAVERSE_REC,
+} from './trie'
+import {
+  GRAPH_SEARCH_ITER,
+  GRAPH_SEARCH_REC,
+  GRAPH_SHORTEST_ITER,
+  GRAPH_SHORTEST_REC,
+  GRAPH_TRAVERSE_ITER,
+  GRAPH_TRAVERSE_REC,
+} from './graph'
+import {
   DLIST_DELETE_ITER,
   DLIST_DELETE_REC,
   DLIST_INSERT_ITER,
@@ -174,6 +190,14 @@ const PAIRS: Readonly<Record<string, SnippetPair>> = {
   'max-heap:insert': { iter: MAX_HEAP_INSERT_ITER, rec: MAX_HEAP_INSERT_REC },
   'max-heap:delete': { iter: MAX_HEAP_DELETE_ITER, rec: MAX_HEAP_DELETE_REC },
   'max-heap:traverse': { iter: HEAP_TRAVERSE_ITER, rec: HEAP_TRAVERSE_REC },
+
+  'trie:insert': { iter: TRIE_INSERT_ITER, rec: TRIE_INSERT_REC },
+  'trie:search': { iter: TRIE_SEARCH_ITER, rec: TRIE_SEARCH_REC },
+  'trie:traverse': { iter: TRIE_TRAVERSE_ITER, rec: TRIE_TRAVERSE_REC },
+
+  'graph:traverse': { iter: GRAPH_TRAVERSE_ITER, rec: GRAPH_TRAVERSE_REC },
+  'graph:search': { iter: GRAPH_SEARCH_ITER, rec: GRAPH_SEARCH_REC },
+  'graph:shortest-path': { iter: GRAPH_SHORTEST_ITER, rec: GRAPH_SHORTEST_REC },
 }
 
 const DEFAULT_TRAVERSAL: TraversalOrder = 'in-order'
@@ -250,8 +274,17 @@ const STRUCTURES: readonly string[] = [
   'avl-tree',
   'min-heap',
   'max-heap',
+  'trie',
+  'graph',
 ]
-const OPERATIONS: readonly string[] = ['insert', 'delete', 'search', 'traverse', 'sort']
+const OPERATIONS: readonly string[] = [
+  'insert',
+  'delete',
+  'search',
+  'traverse',
+  'sort',
+  'shortest-path',
+]
 const TRAVERSALS: readonly string[] = ['in-order', 'pre-order', 'post-order', 'level-order']
 const SORTS: readonly string[] = ['bubble', 'insertion', 'selection', 'merge', 'quick', 'heap']
 
@@ -266,6 +299,8 @@ function asStructure(value: string): Structure {
   if (value === 'avl-tree') return 'avl-tree'
   if (value === 'min-heap') return 'min-heap'
   if (value === 'max-heap') return 'max-heap'
+  if (value === 'trie') return 'trie'
+  if (value === 'graph') return 'graph'
   return 'array'
 }
 
@@ -275,6 +310,7 @@ function asOperation(value: string): Operation {
   if (value === 'delete') return 'delete'
   if (value === 'search') return 'search'
   if (value === 'sort') return 'sort'
+  if (value === 'shortest-path') return 'shortest-path'
   return 'traverse'
 }
 

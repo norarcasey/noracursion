@@ -5,6 +5,8 @@ export type { NoracursionProps } from './components/Noracursion'
 export type {
   ColorMode,
   DrawableStructure,
+  NodeSeed,
+  SeedData,
   LabelMode,
   Language,
   Operation,

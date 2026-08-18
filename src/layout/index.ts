@@ -1,4 +1,5 @@
 import type { VizModel } from '../core/model'
+import { graph } from './graph'
 import { chain, row } from './row'
 import { tidyTree } from './tidyTree'
 import type { Layout } from './types'
@@ -16,14 +17,12 @@ export function layoutModel(model: VizModel): Layout {
     case 'row':
       return row(model)
     case 'graph':
-      // v1 takes author-supplied coordinates for graphs (§3.5); until that
-      // lands in M7, a graph falls back to a row so it is at least drawn
-      // rather than silently empty.
-      return row(model)
+      return graph(model)
   }
 }
 
 export { chain, row } from './row'
+export { graph } from './graph'
 export { tidyTree } from './tidyTree'
 export { routeEdge, frame } from './geometry'
 export {
