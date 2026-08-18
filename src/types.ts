@@ -81,6 +81,69 @@ export type LabelMode = 'value' | 'index' | 'none'
 export type ColorMode = 'structure' | 'state' | 'none'
 
 /**
+ * The operations each structure actually has, as a discriminated union on
+ * `structure`.
+ *
+ * CLAUDE.md §6.5 asks for unimplemented combinations to be absent from the type
+ * union rather than silently broken, and §2's two independent unions cannot say
+ * that in their cross product — `array` × `shortest-path` and `stack` ×
+ * `balance` are both spellable and neither means anything. This is where that
+ * gets said.
+ *
+ * One branch per structure, deliberately: `structure` is the discriminant, and
+ * two branches sharing a discriminant value turn a precise "operation must be
+ * one of these" into a wall of union-mismatch noise. `sortAlgorithm` and
+ * `traversalOrder` therefore stay optional on the base props, which is how §2
+ * models them anyway — "only meaningful for sort".
+ */
+export const BUILT_IN_OPERATIONS = {
+  array: ['search', 'insert', 'delete', 'traverse', 'sort'],
+  'linked-list': ['search', 'insert', 'delete', 'traverse'],
+  'doubly-linked-list': ['search', 'insert', 'delete', 'traverse'],
+  stack: ['insert', 'delete', 'traverse'],
+  queue: ['insert', 'delete', 'traverse'],
+  'binary-search-tree': ['insert', 'search', 'traverse'],
+  'red-black-tree': ['insert', 'search', 'traverse'],
+  'avl-tree': ['insert', 'search', 'traverse'],
+  'min-heap': ['insert', 'delete', 'traverse'],
+  'max-heap': ['insert', 'delete', 'traverse'],
+  trie: ['insert', 'search', 'traverse'],
+  graph: ['traverse', 'search', 'shortest-path'],
+} as const satisfies Record<Structure, readonly Operation[]>
+
+/**
+ * One branch per structure, derived from the table above rather than written
+ * out a second time — a hand-maintained copy would drift from the registry the
+ * first time either changed, and the drift would be invisible.
+ *
+ * One branch per structure matters for the error message: `structure` is the
+ * discriminant, and two branches sharing a value turn a precise "operation must
+ * be one of these" into a wall of union-mismatch noise. `sortAlgorithm` and
+ * `traversalOrder` therefore stay optional on the base props, which is how §2
+ * models them anyway — "only meaningful for sort".
+ */
+export type BuiltInExample = {
+  [S in Structure]: { structure: S; operation: (typeof BUILT_IN_OPERATIONS)[S][number] }
+}[Structure]
+
+/**
+ * Any pairing at all, once you bring your own program.
+ *
+ * The registry constrains what *Noracursion* provides; it has no business
+ * constraining what you write. A consumer who wants to demonstrate deleting
+ * from a graph is not wrong, they are just past the end of the built-ins — so
+ * the type asks them for the one thing that makes it work, which is `code`.
+ */
+export type CustomExample = {
+  structure: Structure
+  operation: Operation
+  code: string
+}
+
+/** The pairs `<Noracursion />` accepts: a built-in, or your own code. */
+export type Example = BuiltInExample | CustomExample
+
+/**
  * Every `Structure` now has a model behind it, so this is an alias rather than
  * a subset. It stays as a distinct name because `core/`, `bridge/` and the run
  * hook all talk about "a structure something can be built from", and that is

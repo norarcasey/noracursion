@@ -15,6 +15,7 @@ import type { RunSummary, StepInfo } from '../interpreter/values'
 import { layoutModel } from '../layout'
 import {
   STRUCTURE_LABELS,
+  type Example,
   type NodeSeed,
   type ColorMode,
   type LabelMode,
@@ -36,18 +37,13 @@ import { useRun } from '../ui/useRun'
 import { Stage } from '../viz'
 
 /**
- * The props implemented so far.
+ * Everything except which example to show.
  *
- * The full surface lives in CLAUDE.md §2; this interface carries only what the
- * component actually honours. A prop that is declared but ignored is worse than
- * one that is missing — the type would promise behaviour that is not there — so
- * the rest arrive with the milestones that implement them. The built-in snippet
- * library is M6, which is why `code` still has no default.
+ * `structure` and `operation` are not here: they arrive as `Example`, a
+ * discriminated union that only spells out the pairs that exist (§6.5). The
+ * two are intersected into `NoracursionProps` below.
  */
-export interface NoracursionProps {
-  /* --- what to show --- */
-  structure: Structure
-  operation: Operation
+export interface NoracursionBaseProps {
   /**
    * Values to build the structure from. Defaults to a small sample set chosen
    * for the structure — words for a trie, positioned nodes for a graph.
@@ -70,9 +66,12 @@ export interface NoracursionProps {
 
   /* --- code panel --- */
   /**
-   * Overrides the built-in snippet. The live structure is injected as `arr`,
-   * `list` or `tree`, alongside `visit`, `compare`, `swap`, `setColor`, `mark`
-   * and `log`.
+   * Overrides the built-in snippet, and is *required* for a
+   * `(structure, operation)` pairing that has no built-in.
+   *
+   * The live structure is injected under its own name — `arr`, `list`, `stack`,
+   * `queue`, `tree`, `heap`, `trie` or `graph` — alongside `visit`, `compare`,
+   * `swap`, `setColor`, `mark` and `log`.
    */
   code?: string
   /** Default `'typescript'`. Anything else is shown but not executed (§4). */
@@ -114,6 +113,18 @@ export interface NoracursionProps {
   onComplete?: (summary: RunSummary) => void
   onRuntimeError?: (error: NoracursionError) => void
 }
+
+/**
+ * The component's props.
+ *
+ * An intersection rather than one interface, so that `structure` and
+ * `operation` constrain each other: `operation="balance"` on an array is a
+ * compile error, not a notice at runtime. Usage is unchanged and still flat —
+ * `<Noracursion structure="array" operation="sort" />` — and bringing your own
+ * `code` opens the pairing up again, because the registry has no business
+ * constraining a program it did not write.
+ */
+export type NoracursionProps = NoracursionBaseProps & Example
 
 type TransportAction = 'toggle' | 'play' | 'forward' | 'back' | 'reset'
 
@@ -312,7 +323,9 @@ export function Noracursion({
         </div>
       )}
 
-      {program === null && <NoExample structure={structure} operation={operation} />}
+      {program === null && (
+        <NoExample structure={structure} operation={operation} language={language} />
+      )}
 
       <Stage
         layout={layout}
@@ -373,13 +386,26 @@ export function Noracursion({
  * A drawable structure with no example for this operation. Distinct from
  * `NotYetDrawable`: the picture is fine, it is the program that is missing.
  */
-function NoExample({ structure, operation }: { structure: Structure; operation: Operation }) {
+function NoExample({
+  structure,
+  operation,
+  language,
+}: {
+  structure: Structure
+  operation: Operation
+  language: Language
+}) {
+  // Every typed `(structure, operation)` pairing has a TypeScript snippet, and
+  // anything outside those requires `code` at the type level — so the only way
+  // to arrive here is a language whose library has not been written, or an
+  // untyped consumer passing a pairing that does not exist.
+  const reason =
+    language === 'typescript'
+      ? `Noracursion has no ${operation} example for the ${STRUCTURE_LABELS[structure]} yet.`
+      : `Noracursion has no ${language.charAt(0).toUpperCase() + language.slice(1)} examples yet.`
   return (
     <div className="nrc__notice" role="status" style={noticeStyle}>
-      <strong>
-        {`Noracursion has no ${operation} example for the ${STRUCTURE_LABELS[structure]} yet.`}
-      </strong>{' '}
-      Pass your own <code>code</code> to run something against it.
+      <strong>{reason}</strong> Pass your own <code>code</code> to show one.
     </div>
   )
 }

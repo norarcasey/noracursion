@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildRun, type Run } from '../bridge'
 import type { VizEvent } from '../bridge/events'
 import type { Cell, VizModel } from '../core/model'
-import type { DrawableStructure, NodeSeed, SeedData } from '../types'
+import { BUILT_IN_OPERATIONS, type DrawableStructure, type NodeSeed, type SeedData } from '../types'
 import { getSnippet, hasSnippet, snippetKey, snippetVariants } from './index'
 
 /**
@@ -459,3 +459,60 @@ describe('graph', () => {
     expect(model.edges.every((edge) => edge.label !== '1')).toBe(true)
   })
 })
+
+describe('the type and the registry agree', () => {
+  it('has a snippet for every pairing the props type allows', () => {
+    // §6.5, enforced rather than asserted by hand: `BUILT_IN_OPERATIONS` is
+    // what the discriminated props union is derived from, so anything spellable
+    // in TSX has to exist here. A pairing added to one and not the other fails
+    // this, instead of failing a reader at runtime.
+    const missing: string[] = []
+    for (const [structure, operations] of Object.entries(BUILT_IN_OPERATIONS)) {
+      for (const operation of operations) {
+        const request = { structure: asStructureName(structure), operation }
+        for (const recursion of [true, false]) {
+          if (!hasSnippet({ ...request, recursion })) {
+            missing.push(snippetKey({ ...request, recursion }))
+          }
+        }
+      }
+    }
+    expect(missing).toEqual([])
+  })
+
+  it('offers all four walks wherever an ordered tree is traversed', () => {
+    for (const structure of ['binary-search-tree', 'red-black-tree', 'avl-tree'] as const) {
+      for (const traversalOrder of [
+        'in-order',
+        'pre-order',
+        'post-order',
+        'level-order',
+      ] as const) {
+        expect(hasSnippet({ structure, operation: 'traverse', traversalOrder })).toBe(true)
+      }
+    }
+  })
+
+  it('walks a red-black tree exactly as it walks any search tree', () => {
+    // Same snippet, same answer: balancing changes what the shape is, never
+    // how you read it.
+    const run = buildRun({
+      structure: 'red-black-tree',
+      data: DATA,
+      code:
+        getSnippet({
+          structure: 'red-black-tree',
+          operation: 'traverse',
+          traversalOrder: 'in-order',
+        }) ?? '',
+    })
+    expect(run.error).toBeNull()
+    expect(run.summary.logs).toEqual(['1', '3', '6', '8', '10', '14'])
+  })
+})
+
+function asStructureName(value: string): DrawableStructure {
+  const structure = STRUCTURE_FOR[value]
+  if (structure === undefined) throw new Error(`unknown structure ${value}`)
+  return structure
+}

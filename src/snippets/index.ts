@@ -167,6 +167,11 @@ const PAIRS: Readonly<Record<string, SnippetPair>> = {
 
   'red-black-tree:insert': { iter: RB_INSERT_ITER, rec: RB_INSERT_REC },
   'red-black-tree:search': { iter: RB_SEARCH_ITER, rec: RB_SEARCH_REC },
+  // The traversals are the search tree's, unchanged: a red-black tree and an
+  // AVL tree expose the same root/left/right, and walking one is walking any
+  // of them. Balancing changes what the shape is, never how you read it.
+  ...TRAVERSALS_FOR('red-black-tree'),
+  ...TRAVERSALS_FOR('avl-tree'),
 
   'doubly-linked-list:search': { iter: DLIST_SEARCH_ITER, rec: DLIST_SEARCH_REC },
   'doubly-linked-list:traverse': { iter: DLIST_TRAVERSE_ITER, rec: DLIST_TRAVERSE_REC },
@@ -200,12 +205,37 @@ const PAIRS: Readonly<Record<string, SnippetPair>> = {
   'graph:shortest-path': { iter: GRAPH_SHORTEST_ITER, rec: GRAPH_SHORTEST_REC },
 }
 
+/** The four search-tree walks, keyed for whichever tree is asking. */
+function TRAVERSALS_FOR(structure: string): Record<string, SnippetPair> {
+  return {
+    [`${structure}:traverse:in-order`]: { iter: TREE_TRAVERSE_IN_ITER, rec: TREE_TRAVERSE_IN_REC },
+    [`${structure}:traverse:pre-order`]: {
+      iter: TREE_TRAVERSE_PRE_ITER,
+      rec: TREE_TRAVERSE_PRE_REC,
+    },
+    [`${structure}:traverse:post-order`]: {
+      iter: TREE_TRAVERSE_POST_ITER,
+      rec: TREE_TRAVERSE_POST_REC,
+    },
+    [`${structure}:traverse:level-order`]: {
+      iter: TREE_TRAVERSE_LEVEL_ITER,
+      rec: TREE_TRAVERSE_LEVEL_REC,
+    },
+  }
+}
+
 const DEFAULT_TRAVERSAL: TraversalOrder = 'in-order'
 const DEFAULT_SORT: SortAlgorithm = 'bubble'
 
+/**
+ * Structures whose `traverse` comes in four orders. A heap or a trie has one
+ * natural walk; a search tree has four, and which one you take is the lesson.
+ */
+const ORDERED_TREES: readonly string[] = ['binary-search-tree', 'red-black-tree', 'avl-tree']
+
 /** The variant suffix an operation needs, if any. */
 function variantOf(request: SnippetRequest): string {
-  if (request.operation === 'traverse' && request.structure === 'binary-search-tree') {
+  if (request.operation === 'traverse' && ORDERED_TREES.includes(request.structure)) {
     return `:${request.traversalOrder ?? DEFAULT_TRAVERSAL}`
   }
   if (request.operation === 'sort') return `:${request.sortAlgorithm ?? DEFAULT_SORT}`

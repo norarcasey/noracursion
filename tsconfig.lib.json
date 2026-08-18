@@ -4,5 +4,12 @@
     "noEmit": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/main.tsx", "src/App.tsx", "src/test"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-d.ts",
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/test"
+  ]
 }

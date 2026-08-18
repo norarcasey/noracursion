@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Noracursion } from './Noracursion'
+import { Noracursion, type NoracursionProps } from './Noracursion'
 
 const SORT = `
 for (let i = 0; i < arr.length; i++) {
@@ -68,11 +68,20 @@ describe('<Noracursion />', () => {
     expect(editorValue()).not.toContain('function walk')
   })
 
-  it('says so plainly when there is no example for the operation', () => {
-    render(<Noracursion structure="array" operation="balance" />)
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Noracursion has no balance example for the array yet.',
+  it('requires your own code for a pairing it has no example for', () => {
+    // `operation="balance"` on an array is now a compile error without `code`;
+    // with it, the pairing is yours to define and the component runs it.
+    const { container } = render(
+      <Noracursion structure="array" operation="balance" code={`log(arr.length)`} />,
     )
+    expect(screen.getByRole('textbox', { name: /editable source/i })).toBeInTheDocument()
+    // No notice — the step counter is also role=status, so ask for the notice.
+    expect(container.querySelector('.nrc__notice')).toBeNull()
+  })
+
+  it('says so plainly when the language has no snippet library yet', () => {
+    render(<Noracursion structure="array" operation="sort" language="python" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Noracursion has no Python examples yet.')
   })
 
   it('captions the example with its structure and operation', () => {
@@ -157,21 +166,24 @@ describe('<Noracursion />', () => {
   })
 
   it('draws every structure in the union — there is no "not yet" left', () => {
-    for (const structure of [
-      'array',
-      'linked-list',
-      'doubly-linked-list',
-      'stack',
-      'queue',
-      'binary-search-tree',
-      'red-black-tree',
-      'avl-tree',
-      'min-heap',
-      'max-heap',
-      'trie',
-      'graph',
-    ] as const) {
-      const { unmount } = render(<Noracursion structure={structure} operation="traverse" />)
+    // Each entry is checked against the union on its own, which is what makes
+    // the discriminated props usable in a list like this.
+    const examples: readonly NoracursionProps[] = [
+      { structure: 'array', operation: 'traverse' },
+      { structure: 'linked-list', operation: 'traverse' },
+      { structure: 'doubly-linked-list', operation: 'traverse' },
+      { structure: 'stack', operation: 'traverse' },
+      { structure: 'queue', operation: 'traverse' },
+      { structure: 'binary-search-tree', operation: 'traverse' },
+      { structure: 'red-black-tree', operation: 'traverse' },
+      { structure: 'avl-tree', operation: 'traverse' },
+      { structure: 'min-heap', operation: 'traverse' },
+      { structure: 'max-heap', operation: 'traverse' },
+      { structure: 'trie', operation: 'traverse' },
+      { structure: 'graph', operation: 'traverse' },
+    ]
+    for (const example of examples) {
+      const { unmount } = render(<Noracursion {...example} />)
       expect(screen.getByRole('img')).toBeInTheDocument()
       unmount()
     }

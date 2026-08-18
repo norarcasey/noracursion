@@ -87,7 +87,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ends. Graphs are author-positioned per §3.5, carry weights on their edges, and
   fall back to a deterministic ring when given plain values. `NodeSeed` — named
   but never defined in §2 — is now a real type. Dijkstra, BFS and DFS ship as
-  snippets. (410 tests.)
+  snippets.
+- **Typed `(structure, operation)` pairings.** `NoracursionProps` is now a
+  discriminated union on `structure`, so `operation="balance"` on an array is a
+  compile error rather than a runtime notice — the §6.5 requirement that two
+  independent unions could not express. Usage is unchanged and still flat.
+  Supplying your own `code` opens any pairing back up, because the registry has
+  no business constraining a program it did not write. The union is derived
+  from `BUILT_IN_OPERATIONS`, and a test asserts every pairing it allows has a
+  snippet behind it, so the type and the library cannot drift apart.
+  Red-black and AVL trees gained the four traversals along the way. (438 tests.)
 
 - **M0 — bootstrap.** `<Noracursion />` renders the component shell: an optional
   title, an optional consumer blurb, a static SVG of three hardcoded nodes, and

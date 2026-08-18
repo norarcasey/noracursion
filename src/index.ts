@@ -1,10 +1,14 @@
 // Public API for embedding Noracursion.
 export { Noracursion } from './components/Noracursion'
-export type { NoracursionProps } from './components/Noracursion'
+export type { NoracursionBaseProps, NoracursionProps } from './components/Noracursion'
 
+export { BUILT_IN_OPERATIONS } from './types'
 export type {
+  BuiltInExample,
   ColorMode,
+  CustomExample,
   DrawableStructure,
+  Example,
   NodeSeed,
   SeedData,
   LabelMode,
